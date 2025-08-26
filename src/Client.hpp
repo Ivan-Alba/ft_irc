@@ -33,7 +33,6 @@ class Client
 		void	setUsername(const std::string &username);
 		void	setPasswordAccepted(bool isAccepted);
 		void	setAuthenticated(bool isAuth);
-
 };
 
 #endif

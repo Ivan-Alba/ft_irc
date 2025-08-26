@@ -16,6 +16,8 @@ class Channel
 		std::map<std::string, const Client*>	users;
 		std::set<const Client*>					operators;
 		int										userLimit;
+		bool									inviteOnly;
+		bool									topicBlocked;
 
 		Channel(); //Block default constructor
 
@@ -31,11 +33,15 @@ class Channel
 		const std::string&	getTopic() const;
 		const std::string&	getKey() const;
 		int					getUserLimit() const;
+		bool				isInviteOnly() const;
+		bool				isTopicBlocked() const;
 
 		// Setter
 		void	setTopic(const std::string &newTopic);
 		void	setKey(const std::string &newKey);
 		void	setUserLimit(int newLimit);
+		void	setInviteOnly(bool inviteOnly);
+		void	setTopicBlocked(bool topicBlocked);
 
 		// Utilities
 		void	addUser(const Client* newUser);

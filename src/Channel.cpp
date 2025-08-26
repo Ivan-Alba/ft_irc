@@ -2,8 +2,8 @@
 #include "Client.hpp"
 
 // Constructor
-Channel::Channel(const std::string &name, const std::string &topic)
-	: name(name), topic(topic), key(""), userLimit(50) {}
+Channel::Channel(const std::string &name, const std::string &topic)	: name(name),
+	topic(topic), key(""), userLimit(50), inviteOnly(false), topicBlocked(true) {}
 
 // Destructor
 Channel::~Channel()
@@ -13,17 +13,17 @@ Channel::~Channel()
 }
 
 // Getter
-const std::string& Channel::getName() const
+const std::string&	Channel::getName() const
 {
 	return (this->name);
 }
 
-const std::string& Channel::getTopic() const
+const std::string&	Channel::getTopic() const
 {
 	return (this->topic);
 }
 
-const std::string& Channel::getKey() const
+const std::string&	Channel::getKey() const
 {
 	return (this->key);
 }
@@ -31,6 +31,16 @@ const std::string& Channel::getKey() const
 int	Channel::getUserLimit() const
 {
 	return (this->userLimit);
+}
+
+bool	Channel::isInviteOnly() const
+{
+	return (this->inviteOnly);
+}
+
+bool	Channel::isTopicBlocked() const
+{
+	return (this->topicBlocked);
 }
 
 // Setter
@@ -49,6 +59,16 @@ void	Channel::setUserLimit(int newLimit)
 	this->userLimit = newLimit;
 }
 
+void	Channel::setInviteOnly(bool inviteOnly)
+{
+	this->inviteOnly = inviteOnly;
+}
+
+void	Channel::setTopicBlocked(bool topicBlocked)
+{
+	this->topicBlocked = topicBlocked;
+}
+
 // Utilities
 void	Channel::addUser(const Client *newUser)
 {
@@ -64,7 +84,6 @@ void	Channel::removeUser(const std::string &nickname)
 {
 	users.erase(nickname);
 }
-
 
 void	Channel::removeOperator(const Client *operatr)
 {

@@ -22,6 +22,14 @@ class Server
 		
 		Server(); // Block default constructor
 
+		void	addChannel(const std::string &name, const std::string &topic);
+		void	acceptNewClient();
+		void	disconnectClient(Client *client, const std::string &reason);
+		void	handleClientMessage(int fd);
+		void	addPollFd(int fd);
+		void	removePollFd(int fd);
+		void	sendToClient(int clientFd, const std::string &message);
+
 	public:
 		// Constructor
 		Server(int port, const std::string &password);
@@ -29,24 +37,14 @@ class Server
 		// Destructor
 		~Server();
 
-		// Execution flow
+		// Execution loop
 		void	run();
-		void	acceptNewClient();
-		void	handleClientMessage(int fd);
 
 		// Utilities
-		//void	deleteClient(int fd);
-		//void	addChannel(const Channel* newChannel);
-		//void	deleteChannel(const std::string &channelName);
-
-		void	addPollFd(int fd);
-		void	removePollFd(int fd);
-		void	disconnectClient(Client *client, const std::string &reason);
+		void	logMessage(const std::string &msg) const;
 		void	sendNotice(const Client *client, const std::string &text);	
 		void	sendError(const Client *client, const std::string &text);
 		void	sendPrivMsg(const Client *from, const Client* to, const std::string &text);
-		void	sendToClient(int clientFd, const std::string &message);
-
 };
 
 #endif

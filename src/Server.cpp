@@ -4,8 +4,9 @@
 #include "config.hpp"
 
 #include <iostream>
+#include <sstream>
 #include <cstring>
-#include <vector>
+#include <ctime>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <unistd.h>
@@ -15,10 +16,7 @@ Server::Server(int port, const std::string &password) : port(port), password(pas
 {
 	// Create the server socket
 	// int socket(int domain, int type, int protocol);
-	// domain/addressFamily: AF_INET (IPv4)
-	// type/socketType: SOCK_STREAM (TCP)
-	// protocol: 0 (use default for given type, here TCP)
-	// return: fd OK / -1 ERROR
+	// return: socket_fd OK / -1 ERROR
 	listenFd = socket(serverConfig::domain, serverConfig::type, serverConfig::protocol);
 
 	if (listenFd == -1)
@@ -41,7 +39,7 @@ Server::Server(int port, const std::string &password) : port(port), password(pas
 
 	// Bind the socket to the specified IP address and port
 	//int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-	
+	// return: 0 OK / -1 ERROR
 	sockaddr_in addr;
 	std::memset(&addr, 0, sizeof(addr)); //Clean struct
 
@@ -66,11 +64,11 @@ Server::Server(int port, const std::string &password) : port(port), password(pas
 	}
 
 	// Set the listening socket to non-blocking mode
+	// return: 0 OK / -1 ERROR
 	if (fcntl(listenFd, serverConfig::fcntlCmd, serverConfig::fcntlFlag) == -1)
 	{
 		throw std::runtime_error(
 			std::string("fcntl() fauked: ") + strerror(errno));
-
 	}
 }
 
@@ -97,9 +95,22 @@ Server::~Server()
 	channels.clear();
 }
 
+void	Server::addChannel(const std::string &name, const std::string &topic)
+{
+	if (channels.find(name) == channels.end())
+	{
+		Channel *newChannel = new Channel(name, topic);
+		channels[name] = newChannel;
+	}
+	else
+		throw std::runtime_error("Channel already exists.");
+}
+
 // Execution flow
 void	Server::run()
 {
+	addChannel("#welcome", "Welcome channel");
+
 	addPollFd(listenFd);
 
 	while (true)
@@ -138,29 +149,46 @@ void	Server::acceptNewClient()
 	socklen_t			clientLen;
 
 	clientLen = sizeof(clientAddr);
+
 	clientFd = accept(listenFd, (struct sockaddr*)&clientAddr, &clientLen);
+	
 	if (clientFd == -1)
 	{
-		if (errno != EAGAIN && errno != EWOULDBLOCK)
+		if (errno != EAGAIN && errno != EWOULDBLOCK) // Non-critic errors
 			throw std::runtime_error(
 				std::string("Cannot accept client: ") + strerror(errno));
 	}
 	else
 	{
-		std::cout << "New Client accepted" << std::endl;
+		logMessage("New client accepted");
 		Client *newClient = new Client(clientFd);
 		clientsByFd[clientFd] = newClient;
+		
+		std::ostringstream oss;
+		oss << "Total clients: " << clientsByFd.size();
+		logMessage(oss.str());
+
 		addPollFd(clientFd);
-		sendToClient(clientFd, "Enter nickname: "); //Debug
 	}
 }
 
 void	Server::handleClientMessage(int fd)
 {
+	/*std::map<int, Client*>::iterator it = clientsByFd.find(fd);
+
+	if (it != clientsByFd.end())
+	{
+		Client *client = it->second;
+		ClientMessageHandler::handleMessage(*this, *client);
+	}	
+	else
+	{
+
+	}*/
+
 	(void)fd;
 }
 
-// Utilities
 void	Server::disconnectClient(Client *client, const std::string& reason)
 {
 	try
@@ -168,14 +196,14 @@ void	Server::disconnectClient(Client *client, const std::string& reason)
 		sendError(client, reason);
 	} catch (...) {}
 
+    removePollFd(client->getClientFd());
+	
 	// Close Client fd
 	if (client->getClientFd() >= 0)
 	{
 		close(client->getClientFd());
 		client->setClientFd(-1);
 	}
-
-    removePollFd(client->getClientFd());
 
 	// Remove from server
     clientsByFd.erase(client->getClientFd());
@@ -222,6 +250,7 @@ void	Server::removePollFd(int fd)
 	}
 }
 
+// Utilities
 void	Server::sendNotice(const Client *client, const std::string &text)
 {
 	std::string	msg;
@@ -264,4 +293,15 @@ void	Server::sendToClient(int clientFd, const std::string &message)
 			throw std::runtime_error("Error sending to client fd " + clientFd);
 		}
     }
+}
+
+void	Server::logMessage(const std::string &msg) const
+{
+	std::time_t	now;
+	char buf[20];
+	
+	now = std::time(NULL);
+	std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
+
+	std::cout << "[" << buf << "] " << msg << std::endl;
 }
