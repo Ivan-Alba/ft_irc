@@ -117,10 +117,12 @@ void	Server::run()
 	{
 		if (poll(&pollFds[0], pollFds.size(), serverConfig::pollTimeout) < 0)	
             throw std::runtime_error("poll() failed");
-
-		for (size_t i = 0; i < pollFds.size(); ++i)
+		
+		size_t n = pollFds.size();
+		for (size_t i = 0; i < n; ++i)
 		{
-			if (pollFds[i].revents & POLLIN) // Data to read
+			// READ (POLLIN)
+			if (pollFds[i].revents & POLLIN)
 			{
 				if (pollFds[i].fd == listenFd)	// Server poll
 				{
@@ -138,6 +140,22 @@ void	Server::run()
 					handleClientMessage(pollFds[i].fd);
 				}
 			}
+
+			// WRITE (POLLOUT)
+			if (pollFds[i].revents & POLLOUT)
+			{
+				Client* client = clientsByFd[pollFds[i].fd];
+				if (!client->getBufferOut().empty())
+				{
+					sendPendingMessages(client);
+					if (client->getBufferOut().empty())
+					{
+                        pollFds[i].events &= ~POLLOUT;
+					}
+				}
+			}
+
+			pollFds[i].revents = 0;
 		}
 	}
 }
@@ -162,15 +180,18 @@ void	Server::acceptNewClient()
 	}
 	else
 	{
+		int flags = fcntl(clientFd, F_GETFL, 0);
+		fcntl(clientFd, F_SETFL, flags | O_NONBLOCK);
+
 		logMessage("New client accepted");
 		Client *newClient = new Client(clientFd);
 		clientsByFd[clientFd] = newClient;
-		
 		std::ostringstream oss;
 		oss << "Total clients: " << clientsByFd.size();
 		logMessage(oss.str());
 
 		addPollFd(clientFd);
+		sendNotice(newClient, "Welcome to ircserv");
 	}
 }
 
@@ -190,8 +211,10 @@ void	Server::handleClientMessage(int fd)
 
 	if (bytesRead > 0)
 	{
-		buf[bytesRead] = '\0';
 		client->appendToBuffer(std::string(buf, bytesRead));
+		// TODO DEBUG
+    	std::cout << "DEBUG Client[" << fd << "]:"
+			<< std::string(buf, bytesRead) << std::endl;
 		//ClientMessageHandler::handleMessage(*this, *client);
 	}
 	else if (bytesRead == 0
@@ -203,6 +226,10 @@ void	Server::handleClientMessage(int fd)
 
 void	Server::disconnectClient(Client *client, const std::string& reason)
 {
+	std::ostringstream oss;
+	oss << "Client[" << client->getClientFd() << "] disconnected.";
+
+	client->getClientFd(); 
 	try
 	{
 		sendError(client, reason);
@@ -238,6 +265,8 @@ void	Server::disconnectClient(Client *client, const std::string& reason)
 
 	//Free memory
 	delete client;
+
+	logMessage(oss.str());
 }
 
 void	Server::addPollFd(int fd)
@@ -282,29 +311,77 @@ void	Server::sendError(const Client *client, const std::string &text)
     sendToClient(client->getClientFd(), msg);
 }
 
-void	Server::sendPrivMsg(const Client* from, const Client* to,
-	const std::string &text)
-{
-	std::string	msg;
-
-	msg = ":" + from->getNickname() + " PRIVMSG " + to->getNickname()
-		+ " :" + text + "\r\n";
-
-	sendToClient(to->getClientFd(), msg);
-}
-
 void	Server::sendToClient(int clientFd, const std::string &message)
 {
-	ssize_t	bytesSent = send(clientFd, message.c_str(), message.size(), 0);
+	Client* client = clientsByFd.at(clientFd);
 
-	if (bytesSent == -1)
+	// Pending messages
+	if (!client->getBufferOut().empty())
 	{
-		if (errno != EAGAIN && errno != EWOULDBLOCK)
-		{
-			disconnectClient(clientsByFd.at(clientFd), "Cannot send message.");
-			throw std::runtime_error("Error sending to client fd " + clientFd);
+		client->appendToBufferOut(message);
+		markPollFdWritable(clientFd);
+		return;
+	}
+
+	ssize_t bytesSent = send(clientFd, message.c_str(), message.size(), 0);
+
+	if (bytesSent == -1) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			client->appendToBufferOut(message);
+			markPollFdWritable(clientFd);
 		}
-    }
+		else
+		{
+			disconnectClient(client, "Cannot send message.");
+		}
+	}
+	else if (bytesSent < (ssize_t)message.size())
+	{
+		client->appendToBufferOut(message.substr(bytesSent));
+		markPollFdWritable(clientFd);
+	}
+}
+
+void	Server::sendPendingMessages(Client* client)
+{
+	std::string& outBuffer = client->getBufferOut();
+
+	while (!outBuffer.empty())
+	{
+		int bytesSent = send(client->getClientFd(), outBuffer.c_str(),
+				outBuffer.size(), 0);
+
+		if (bytesSent > 0)
+		{
+			outBuffer.erase(0, bytesSent);
+		}
+		else if (bytesSent == -1)
+		{
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+			{
+				// socket no listo, salir y esperar próximo POLLOUT
+				break;
+			}
+			else
+			{
+				// error crítico, desconectar
+				disconnectClient(client, "Cannot send pending message");
+				break;
+			}
+		}
+	}
+}
+
+void	Server::markPollFdWritable(int fd)
+{
+	for (size_t i = 0; i < pollFds.size(); ++i)
+	{
+		if (pollFds[i].fd == fd)
+		{
+			pollFds[i].events |= POLLOUT; // Add flag POLLOUT
+			return;
+		}
+	}
 }
 
 void	Server::logMessage(const std::string &msg) const

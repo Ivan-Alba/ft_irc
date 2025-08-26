@@ -29,6 +29,8 @@ class Server
 		void	addPollFd(int fd);
 		void	removePollFd(int fd);
 		void	sendToClient(int clientFd, const std::string &message);
+		void	sendPendingMessages(Client* client);
+		void	markPollFdWritable(int fd);
 
 	public:
 		// Constructor

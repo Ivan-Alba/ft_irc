@@ -53,6 +53,16 @@ std::string&	Client::getBuffer()
 	return (this->buffer);
 }
 
+const std::string&	Client::getBufferOut() const
+{
+	return (this->bufferOut);
+}
+
+std::string&	Client::getBufferOut()
+{
+	return (this->bufferOut);
+}
+
 // Setter
 void	Client::setClientFd(int fd)
 {
@@ -83,4 +93,9 @@ void	Client::setAuthenticated(bool isAuth)
 void	Client::appendToBuffer(const std::string &newData)
 {
 	this->buffer += newData;
+}
+
+void	Client::appendToBufferOut(const std::string &newData)
+{
+	this->bufferOut += newData;
 }

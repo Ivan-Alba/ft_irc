@@ -12,6 +12,7 @@ class Client
 		bool		passwordAccepted;
 		bool		authenticated;
 		std::string	buffer;
+		std::string	bufferOut;
 
 		Client(); // Block default constructor
 
@@ -32,6 +33,9 @@ class Client
 		const std::string&	getBuffer() const;
 		std::string&		getBuffer();
 
+		const std::string&	getBufferOut() const;
+		std::string&		getBufferOut();
+
 		// Setter
 		void	setClientFd(int fd);
 		void	setNickname(const std::string &nickname);
@@ -41,6 +45,7 @@ class Client
 
 		// Utilities
 		void	appendToBuffer(const std::string &newData);
+		void	appendToBufferOut(const std::string &newData);
 };
 
 #endif
