@@ -43,6 +43,16 @@ bool	Client::isAuthenticated() const
 	return (this->authenticated);
 }
 
+const std::string&	Client::getBuffer() const
+{
+	return (this->buffer);
+}
+
+std::string&	Client::getBuffer()
+{
+	return (this->buffer);
+}
+
 // Setter
 void	Client::setClientFd(int fd)
 {

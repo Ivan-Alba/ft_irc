@@ -7,13 +7,22 @@
 class Server;
 class Client;
 
+typedef void (*CommandHandler)(Server&, Client&, const std::vector<std::string>&);
+
 class ClientMessageHandler
 {
 	public:
 		static void handleMessage(Server &server, Client &client);
 
 	private:
+		static std::map<std::string, CommandHandler>	commandMap;
+		
 		ClientMessageHandler() {} // Block default constructor
+
+		// Command process
+		static void	initCommandMap();
+		static void	processCommand(Server &server, Client &client,
+			const std::vector<std::string> &tokens);
 
 		// Basic IRC commands
 		static void handlePass(Server &server, Client &client,
@@ -42,7 +51,7 @@ class ClientMessageHandler
 			const std::vector<std::string> &tokens);
 
 		// Utilities
-		static std::vector<std::string>	tokenize(std::string &buffer);
+		static std::vector<std::string>	tokenize(std::string &line);
 	
 };
 

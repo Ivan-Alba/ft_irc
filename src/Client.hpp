@@ -29,6 +29,9 @@ class Client
 		bool				isPasswordAccepted() const;
 		bool				isAuthenticated() const;
 
+		const std::string&	getBuffer() const;
+		std::string&		getBuffer();
+
 		// Setter
 		void	setClientFd(int fd);
 		void	setNickname(const std::string &nickname);
