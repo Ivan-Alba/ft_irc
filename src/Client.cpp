@@ -2,10 +2,12 @@
 
 #include <unistd.h>
 
-// Constructor/Destructor
+// Constructor
 Client::Client(int fd) : clientFd(fd), nickname(""), username(""),
 	passwordAccepted(false), authenticated(false), buffer("") {}
 
+
+// Destructor
 Client::~Client()
 {
 	if (clientFd >= 0)
@@ -67,4 +69,8 @@ void	Client::setAuthenticated(bool isAuth)
 	this->authenticated = isAuth;
 }
 
-
+// Utilities
+void	Client::appendToBuffer(const std::string &newData)
+{
+	this->buffer += newData;
+}

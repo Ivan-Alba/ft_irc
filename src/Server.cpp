@@ -155,8 +155,10 @@ void	Server::acceptNewClient()
 	if (clientFd == -1)
 	{
 		if (errno != EAGAIN && errno != EWOULDBLOCK) // Non-critic errors
+		{
 			throw std::runtime_error(
 				std::string("Cannot accept client: ") + strerror(errno));
+		}
 	}
 	else
 	{
@@ -174,19 +176,29 @@ void	Server::acceptNewClient()
 
 void	Server::handleClientMessage(int fd)
 {
-	/*std::map<int, Client*>::iterator it = clientsByFd.find(fd);
+	std::map<int, Client*>::iterator	it;
+	char								buf[BUFFER_SIZE];
+	Client 								*client;
 
-	if (it != clientsByFd.end())
+	it = clientsByFd.find(fd);
+	if (it == clientsByFd.end())
+		return ;
+		
+	client = it->second;
+
+	int bytesRead = recv(client->getClientFd(), buf, BUFFER_SIZE - 1, 0);
+
+	if (bytesRead > 0)
 	{
-		Client *client = it->second;
-		ClientMessageHandler::handleMessage(*this, *client);
-	}	
-	else
+		buf[bytesRead] = '\0';
+		client->appendToBuffer(std::string(buf, bytesRead));
+		//ClientMessageHandler::handleMessage(*this, *client);
+	}
+	else if (bytesRead == 0
+			|| (bytesRead < 0 && errno != EAGAIN && errno != EWOULDBLOCK))
 	{
-
-	}*/
-
-	(void)fd;
+		disconnectClient(client, "Client connection lost");
+	}
 }
 
 void	Server::disconnectClient(Client *client, const std::string& reason)

@@ -13,11 +13,13 @@ class Client
 		bool		authenticated;
 		std::string	buffer;
 
-		Client(); //Block default constructor
+		Client(); // Block default constructor
 
 	public:
-		// Constructor/Destructor
+		// Constructor
 		Client(int fd);
+
+		// Destructor
 		~Client();
 
 		// Getter
@@ -33,6 +35,9 @@ class Client
 		void	setUsername(const std::string &username);
 		void	setPasswordAccepted(bool isAccepted);
 		void	setAuthenticated(bool isAuth);
+
+		// Utilities
+		void	appendToBuffer(const std::string &newData);
 };
 
 #endif

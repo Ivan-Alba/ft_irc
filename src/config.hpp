@@ -8,6 +8,8 @@
 #include <fcntl.h>
 #include <string>
 
+#define BUFFER_SIZE 1024
+
 namespace	serverConfig
 {
 	// Server settings
