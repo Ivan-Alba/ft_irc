@@ -53,7 +53,9 @@ class ClientMessageHandler
 
 		// Utilities
 		static std::vector<std::string>	tokenize(std::string &line);
-	
+		
+		static std::string	trim(const std::string &str);
+		static void			printTokens(const std::vector<std::string> &tokens);
 };
 
 #endif

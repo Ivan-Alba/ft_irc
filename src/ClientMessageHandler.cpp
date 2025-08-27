@@ -1,13 +1,17 @@
 #include "ClientMessageHandler.hpp"
+#include "Client.hpp"
+#include "Server.hpp"
+#include "config.hpp"
+
+#include <iostream>
+#include <sstream>
 
 std::map<std::string, CommandHandler>	ClientMessageHandler::commandMap;
 
 void	ClientMessageHandler::handleMessage(Server &server, Client &client)
 {
-	std::string	&buffer;
+	std::string	&buffer = client.getBuffer();
 	size_t		pos;
-
-	buffer = client.getBuffer();
 
 	while ((pos = buffer.find("\r\n")) != std::string::npos)
 	{
@@ -19,7 +23,7 @@ void	ClientMessageHandler::handleMessage(Server &server, Client &client)
 
 		std::vector<std::string> tokens = tokenize(line);
 		
-		processCommands(server, client, tokens);
+		processCommand(server, client, tokens);
 	}
 }
 
@@ -28,18 +32,18 @@ void	ClientMessageHandler::initCommandMap()
 	commandMap["PASS"]		= &ClientMessageHandler::handlePass;
 	commandMap["NICK"]		= &ClientMessageHandler::handleNick;
 	commandMap["USER"]		= &ClientMessageHandler::handleUser;
-	commandMap["PRIVMSG"]	= &ClientMessageHandler::handlePrivMsg;
-	commandMap["JOIN"]		= &ClientMessageHandler::handleJoin;
-	commandMap["PART"]		= &ClientMessageHandler::handlePart;
+	//commandMap["PRIVMSG"]	= &ClientMessageHandler::handlePrivMsg;
+	//commandMap["JOIN"]		= &ClientMessageHandler::handleJoin;
+	//commandMap["PART"]		= &ClientMessageHandler::handlePart;
 	commandMap["QUIT"]		= &ClientMessageHandler::handleQuit;
-	commandMap["KICK"]		= &ClientMessageHandler::handleKick;
-	commandMap["INVITE"]	= &ClientMessageHandler::handleInvite;
-	commandMap["TOPIC"]		= &ClientMessageHandler::handleTopic;
-	commandMap["MODE"]		= &ClientMessageHandler::handleMode;
+	//commandMap["KICK"]		= &ClientMessageHandler::handleKick;
+	//commandMap["INVITE"]	= &ClientMessageHandler::handleInvite;
+	//commandMap["TOPIC"]		= &ClientMessageHandler::handleTopic;
+	//commandMap["MODE"]		= &ClientMessageHandler::handleMode;
 }
 
 void	ClientMessageHandler::processCommand(Server &server, Client &client,
-			const std::vector<std::string>> &tokens)
+			const std::vector<std::string> &tokens)
 {
 	if (commandMap.empty())
 	{
@@ -64,32 +68,135 @@ void	ClientMessageHandler::processCommand(Server &server, Client &client,
 
 // TODO ALL COMMAND FUNCTIONS
 void	ClientMessageHandler::handlePass(
-			Server &server, Client &client, const std::vector<std::string> &token)
+			Server &server, Client &client, const std::vector<std::string> &tokens)
 {
-	if (client->isPasswordAccepted())
+	if (client.isPasswordAccepted())
 		return ;
 
-	if (token.size() == 1)
+	if (tokens.size() == 1)
 	{
-		// SEND ERROR 461
+		server.sendNumeric(&client, 461, "PASS :Not enough parameters");
 	}
 
-	if (token[1] == server.getPassword())
+	if (tokens[1] == server.getPassword())
 	{
-		client->setPasswordAccepted(true);
-		client->checkAuthenticated();
+		client.setPasswordAccepted(true);
+		server.authenticateClient(&client);
 	}
 	else
 	{
-		// SEND ERROR 464
-		server.disconnectClient(client, "Wrong password");
+		server.sendNumeric(&client, 464, "PASS :Wrong password");
+		server.disconnectClient(&client, "Wrong password");
 	}
 }
 
+void	ClientMessageHandler::handleQuit(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	server.disconnectClient(&client, "Goodbye");
+	(void)tokens;
+}
 
+void	ClientMessageHandler::handleNick(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	if (!client.getNickname().empty())
+		return ;
+
+	if (tokens.size() == 1)
+	{
+		server.sendNumeric(&client, 431, "NICK :No nickname given");
+	}
+	else
+	{
+		client.setNickname(tokens[1]);
+		server.authenticateClient(&client);
+	}
+}
+
+void	ClientMessageHandler::handleUser(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	if (!client.getUsername().empty())
+		return ;
+
+	if (tokens.size() == 1)
+	{
+		server.sendNumeric(&client, 461, "USER :Not enough parameters");
+	}
+	else
+	{
+		client.setUsername(tokens[1]);
+		server.authenticateClient(&client);
+	}
+}
 
 // TODO tonekize()
+
+// Testing tokenizer, printing tokens
+void	ClientMessageHandler::printTokens(const std::vector<std::string> &tokens)
+{
+	for (size_t i=0; i < tokens.size(); ++i)
+	{
+		std::cout << "Token " << i << ": '" << tokens[i] << "'" << std::endl;
+	}
+}
+
+// Trim to delete spaces after and before msg
+std::string	ClientMessageHandler::trim(const std::string &str)
+{
+	std::string	trimmed = "";
+
+	size_t start = str.find_first_not_of(" \t\r\n");
+
+	if (start == std::string::npos)
+		return (trimmed);
+
+	size_t end = str.find_last_not_of(" \t\r\n");
+
+	trimmed = str.substr(start, end - start + 1);
+
+	return (trimmed);
+}
+
 std::vector<std::string>	ClientMessageHandler::tokenize(std::string &line)
 {
+	std::vector<std::string> tokens;
 
+	// Looking for :
+	size_t	pos = line.find(":");
+
+	// If : exist, all the content after is a token including spaces (trailing paramaters)
+	if (pos != std::string::npos)
+	{
+    	// Left part from : must be separated by spaces
+		std::string			left = line.substr(0, pos);
+		std::istringstream	iss(left);
+		std::string			token;
+
+		while (iss >> token)
+		{
+			tokens.push_back(token);
+		}
+
+		//Right part from : , but without begining spaces
+		std::string trailing_params = line.substr(pos + 2);
+		// if there is spaces in the (Ex: PRIVMSG #canal :    hello world  ) delete all the spaces with a trim function
+		tokens.push_back(trim(trailing_params));
+	}
+	else
+	{
+		// If there is not trailing parameters
+		std::istringstream iss(line);
+		std::string word;
+		while (iss >> word)
+		{
+			tokens.push_back(word);
+		}
+	}
+
+	//TODO DEBUG
+	printTokens(tokens);
+
+	return (tokens);
 }

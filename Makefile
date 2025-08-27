@@ -12,8 +12,7 @@
 
 NAME = ircserv
 
-SRC = main.cpp Server.cpp Client.cpp Channel.cpp
-
+SRC = main.cpp Server.cpp Client.cpp Channel.cpp ClientMessageHandler.cpp
 SRC_DIR = src/
 
 SRC_FULL_DIR =  $(addprefix $(SRC_DIR), $(SRC))

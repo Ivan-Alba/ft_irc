@@ -1,6 +1,7 @@
 #include "Server.hpp"
 #include "Client.hpp"
 #include "Channel.hpp"
+#include "ClientMessageHandler.hpp"
 #include "config.hpp"
 
 #include <iostream>
@@ -223,7 +224,7 @@ void	Server::handleClientMessage(int fd)
 			<< std::string(buf, bytesRead) << std::endl;
 
 		std::cout << "Client[" << fd << "] buffer: " << client->getBuffer() << std::endl;
-		//ClientMessageHandler::handleMessage(*this, *client);
+		ClientMessageHandler::handleMessage(*this, *client);
 	}
 	else if (bytesRead == 0
 			|| (bytesRead < 0 && errno != EAGAIN && errno != EWOULDBLOCK))
@@ -274,6 +275,23 @@ void	Server::disconnectClient(Client *client, const std::string& reason)
 	delete client;
 }
 
+void	Server::authenticateClient(Client *client)
+{
+	if (client->isPasswordAccepted()
+		&& !client->getNickname().empty() && !client->getUsername().empty())
+	{
+		client->setAuthenticated(true);
+
+		sendNumeric(client, 1, std::string("Welcome to " + serverConfig::serverName
+			+ " " + client->getNickname()));
+		
+		Channel *welcomeChannel = channels["#welcome"];
+		welcomeChannel->addUser(client);
+		if (welcomeChannel->getUsers().size() == 1)
+			welcomeChannel->addOperator(client);
+	}
+}
+
 void	Server::addPollFd(int fd)
 {
 	struct pollfd	newPoll;
@@ -300,12 +318,12 @@ void	Server::removePollFd(int fd)
 void	Server::sendNotice(const Client *client, const std::string &text)
 {
 	std::string	msg;
-	std::string	nick = "*";
+	std::string	target = "*";
 
 	if (!client->getNickname().empty())
-		nick = client->getNickname();
+		target = client->getNickname();
 
-	msg = ":" + serverConfig::serverName + " NOTICE " + nick
+	msg = ":" + serverConfig::serverName + " NOTICE " + target
 		+ " :" + text + "\r\n";
 
 	sendToClient(client->getClientFd(), msg);
@@ -318,6 +336,33 @@ void	Server::sendError(const Client *client, const std::string &text)
 	msg = "ERROR :" + text + "\r\n";
 
     sendToClient(client->getClientFd(), msg);
+}
+
+void	Server::sendNumeric(Client* client, int numeric, const std::string &message)
+{
+	std::ostringstream	oss;
+	std::string			numericStr;
+	std::string			fullMessage;
+	std::string			target = "*";
+
+	if (!client->getNickname().empty())
+		target = client->getNickname();
+
+	if (numeric < 10)
+		oss << "00" << numeric;
+	else if (numeric < 100)
+		oss << "0" << numeric;
+	else
+		oss << numeric;
+
+	numericStr = oss.str();
+
+	fullMessage = ":" + serverConfig::serverName + " " 
+						+ numericStr + " " 
+						+ target + " :" 
+						+ message + "\r\n";
+
+	sendToClient(client->getClientFd(), fullMessage);
 }
 
 void	Server::sendToClient(int clientFd, const std::string &message)

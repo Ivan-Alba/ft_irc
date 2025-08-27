@@ -46,7 +46,6 @@ class Client
 		// Utilities
 		void	appendToBuffer(const std::string &newData);
 		void	appendToBufferOut(const std::string &newData);
-		void	checkAuthenticated();
 };
 
 #endif
