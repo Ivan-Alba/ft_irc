@@ -24,7 +24,6 @@ class Server
 
 		void	addChannel(const std::string &name, const std::string &topic);
 		void	acceptNewClient();
-		void	disconnectClient(Client *client, const std::string &reason);
 		void	handleClientMessage(int fd);
 		void	addPollFd(int fd);
 		void	removePollFd(int fd);
@@ -39,8 +38,13 @@ class Server
 		// Destructor
 		~Server();
 
+		// Getter
+		const std::string&	getPassword() const;
+
+
 		// Execution loop
 		void	run();
+		void	disconnectClient(Client *client, const std::string &reason);
 
 		// Utilities
 		void	logMessage(const std::string &msg) const;

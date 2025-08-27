@@ -63,7 +63,32 @@ void	ClientMessageHandler::processCommand(Server &server, Client &client,
 }
 
 // TODO ALL COMMAND FUNCTIONS
+void	ClientMessageHandler::handlePass(
+			Server &server, Client &client, const std::vector<std::string> &token)
+{
+	if (client->isPasswordAccepted())
+		return ;
 
+	if (token.size() == 1)
+	{
+		// SEND ERROR 461
+	}
+
+	if (token[1] == server.getPassword())
+	{
+		client->setPasswordAccepted(true);
+		client->checkAuthenticated();
+	}
+	else
+	{
+		// SEND ERROR 464
+		server.disconnectClient(client, "Wrong password");
+	}
+}
+
+
+
+// TODO tonekize()
 std::vector<std::string>	ClientMessageHandler::tokenize(std::string &line)
 {
 

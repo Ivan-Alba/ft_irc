@@ -106,6 +106,12 @@ void	Server::addChannel(const std::string &name, const std::string &topic)
 		throw std::runtime_error("Channel already exists.");
 }
 
+// Getter
+const std::string&	Server::getPassword() const
+{
+	return (this->password);
+}
+
 // Execution flow
 void	Server::run()
 {
@@ -215,6 +221,8 @@ void	Server::handleClientMessage(int fd)
 		// TODO DEBUG
     	std::cout << "DEBUG Client[" << fd << "]:"
 			<< std::string(buf, bytesRead) << std::endl;
+
+		std::cout << "Client[" << fd << "] buffer: " << client->getBuffer() << std::endl;
 		//ClientMessageHandler::handleMessage(*this, *client);
 	}
 	else if (bytesRead == 0
@@ -228,14 +236,13 @@ void	Server::disconnectClient(Client *client, const std::string& reason)
 {
 	std::ostringstream oss;
 	oss << "Client[" << client->getClientFd() << "] disconnected.";
+	logMessage(oss.str());
 
-	client->getClientFd(); 
-	try
-	{
-		sendError(client, reason);
-	} catch (...) {}
+	// Send ERROR message
+	std::string msg = "ERROR :disconnected: " + reason + "\r\n";
+	send(client->getClientFd(), msg.c_str(), msg.size(), 0); 
 
-    removePollFd(client->getClientFd());
+	removePollFd(client->getClientFd());
 	
 	// Close Client fd
 	if (client->getClientFd() >= 0)
@@ -265,8 +272,6 @@ void	Server::disconnectClient(Client *client, const std::string& reason)
 
 	//Free memory
 	delete client;
-
-	logMessage(oss.str());
 }
 
 void	Server::addPollFd(int fd)
@@ -295,8 +300,12 @@ void	Server::removePollFd(int fd)
 void	Server::sendNotice(const Client *client, const std::string &text)
 {
 	std::string	msg;
+	std::string	nick = "*";
 
-	msg = ":" + serverConfig::serverName + " NOTICE " + client->getNickname()
+	if (!client->getNickname().empty())
+		nick = client->getNickname();
+
+	msg = ":" + serverConfig::serverName + " NOTICE " + nick
 		+ " :" + text + "\r\n";
 
 	sendToClient(client->getClientFd(), msg);
@@ -357,17 +366,9 @@ void	Server::sendPendingMessages(Client* client)
 		}
 		else if (bytesSent == -1)
 		{
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-			{
-				// socket no listo, salir y esperar próximo POLLOUT
-				break;
-			}
-			else
-			{
-				// error crítico, desconectar
+			if (errno != EAGAIN || errno != EWOULDBLOCK)
 				disconnectClient(client, "Cannot send pending message");
-				break;
-			}
+			break;
 		}
 	}
 }

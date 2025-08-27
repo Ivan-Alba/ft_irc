@@ -99,3 +99,15 @@ void	Client::appendToBufferOut(const std::string &newData)
 {
 	this->bufferOut += newData;
 }
+
+void	Client::checkAuthenticated()
+{
+	if (authenticated)
+		return;
+
+	if (passwordAccepted && !nickname.empty() && !username.empty())
+	{
+		setAuthenticated(true);
+		// SEND 001 
+	}
+}
