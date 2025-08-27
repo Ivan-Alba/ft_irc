@@ -113,10 +113,15 @@ const std::string&	Server::getPassword() const
 	return (this->password);
 }
 
+std::map<std::string, Client*>	Server::getClientsByNick() const
+{
+	return (this->clientsByNick);
+}
+
 // Execution flow
 void	Server::run()
 {
-	addChannel("#welcome", "Welcome channel");
+	addChannel("welcome", "Welcome channel");
 
 	addPollFd(listenFd);
 
@@ -144,7 +149,11 @@ void	Server::run()
 				}
 				else // Client poll
 				{
-					handleClientMessage(pollFds[i].fd);
+					try
+					{
+						handleClientMessage(pollFds[i].fd);
+					}
+					catch (const ClientDisconnectedException &e) {}
 				}
 			}
 
@@ -238,27 +247,23 @@ void	Server::disconnectClient(Client *client, const std::string& reason)
 	oss << "Client[" << client->getClientFd() << "] disconnected.";
 	logMessage(oss.str());
 
-	// Send ERROR message
 	std::string msg = "ERROR :disconnected: " + reason + "\r\n";
 	send(client->getClientFd(), msg.c_str(), msg.size(), 0); 
 
 	removePollFd(client->getClientFd());
 	
-	// Close Client fd
 	if (client->getClientFd() >= 0)
 	{
 		close(client->getClientFd());
 		client->setClientFd(-1);
 	}
 
-	// Remove from server
     clientsByFd.erase(client->getClientFd());
     if (!client->getNickname().empty())
 	{
 		clientsByNick.erase(client->getNickname());
 	}
 
-	// Remove from channels
 	for (std::map<std::string, Channel*>::iterator it = channels.begin();
 		it != channels.end(); ++it)
 	{
@@ -270,8 +275,9 @@ void	Server::disconnectClient(Client *client, const std::string& reason)
 		}
 	}
 
-	//Free memory
 	delete client;
+
+	throw ClientDisconnectedException();
 }
 
 void	Server::authenticateClient(Client *client)
@@ -283,9 +289,9 @@ void	Server::authenticateClient(Client *client)
 
 		sendNumeric(client, 1, std::string("Welcome to " + serverConfig::serverName
 			+ " " + client->getNickname()));
-		sendNotice(client, "Tip: In irssi, send a message with: /msg <#channel> <text>");
+		sendNotice(client, "Tip: In irssi, send a message with: /msg <channel> <text>");
 		
-		Channel *welcomeChannel = channels["#welcome"];
+		Channel *welcomeChannel = channels["welcome"];
 		welcomeChannel->addUser(client);
 		sendNotice(client, std::string("Joined channel: " + welcomeChannel->getName()));
 		if (welcomeChannel->getUsers().size() == 1)
@@ -418,7 +424,9 @@ void	Server::sendPendingMessages(Client* client)
 		else if (bytesSent == -1)
 		{
 			if (errno != EAGAIN || errno != EWOULDBLOCK)
+			{
 				disconnectClient(client, "Cannot send pending message");
+			}
 			break;
 		}
 	}
@@ -445,4 +453,10 @@ void	Server::logMessage(const std::string &msg) const
 	std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
 
 	std::cout << "[" << buf << "] " << msg << std::endl;
+}
+
+// Exception
+const char*	Server::ClientDisconnectedException::what() const throw()
+{
+	return ("Client disconnected");
 }

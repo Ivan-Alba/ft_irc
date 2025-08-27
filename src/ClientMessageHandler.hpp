@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <exception>
 
 class Server;
 class Client;

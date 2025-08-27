@@ -21,8 +21,7 @@ void	ClientMessageHandler::handleMessage(Server &server, Client &client)
 		if (line.empty())
 			continue;
 
-		std::vector<std::string> tokens = tokenize(line);
-		
+		std::vector<std::string> tokens = tokenize(line);	
 		processCommand(server, client, tokens);
 	}
 }
@@ -60,7 +59,7 @@ void	ClientMessageHandler::processCommand(Server &server, Client &client,
 		{
 			it->second(server, client, tokens);
 		}
-		else
+		else if (tokens[0] == "CAP")
 		{
 			server.sendError(&client, "Unknown command: " + tokens[0]);
 		}
@@ -116,6 +115,20 @@ void	ClientMessageHandler::handleNick(
 	}
 	else
 	{
+		std::map<std::string, Client*>	clientsByNick;
+		
+		clientsByNick = server.getClientsByNick();
+		for (std::map<std::string, Client*>::iterator it
+				= clientsByNick.begin();
+				it != clientsByNick.end(); ++it)
+		{
+			if (it->second->getNickname() == client.getNickname())
+			{
+				server.sendError(&client, "Nickname already in use");
+				return ;
+			}
+		}
+
 		client.setNickname(tokens[1]);
 		server.authenticateClient(&client);
 	}

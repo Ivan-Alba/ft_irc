@@ -40,7 +40,7 @@ class Server
 
 		// Getter
 		const std::string&	getPassword() const;
-
+		std::map<std::string, Client*>	getClientsByNick() const;
 
 		// Execution loop
 		void	run();
@@ -58,6 +58,13 @@ class Server
 
 		// Debug
 		void	logMessage(const std::string &msg) const;
+
+		// Exception
+		class ClientDisconnectedException : public std::exception
+		{
+			public:
+				virtual const char* what() const throw();
+		};
 };
 
 #endif
