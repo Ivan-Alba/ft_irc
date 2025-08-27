@@ -198,7 +198,6 @@ void	Server::acceptNewClient()
 		logMessage(oss.str());
 
 		addPollFd(clientFd);
-		sendNotice(newClient, "Welcome to ircserv");
 	}
 }
 
@@ -284,9 +283,11 @@ void	Server::authenticateClient(Client *client)
 
 		sendNumeric(client, 1, std::string("Welcome to " + serverConfig::serverName
 			+ " " + client->getNickname()));
+		sendNotice(client, "Tip: In irssi, send a message with: /msg <#channel> <text>");
 		
 		Channel *welcomeChannel = channels["#welcome"];
 		welcomeChannel->addUser(client);
+		sendNotice(client, std::string("Joined channel: " + welcomeChannel->getName()));
 		if (welcomeChannel->getUsers().size() == 1)
 			welcomeChannel->addOperator(client);
 	}
@@ -315,6 +316,11 @@ void	Server::removePollFd(int fd)
 }
 
 // Utilities
+void	Server::sendRaw(const Client *client, const std::string &text)
+{
+	sendToClient(client->getClientFd(), text + "\r\n");
+}
+
 void	Server::sendNotice(const Client *client, const std::string &text)
 {
 	std::string	msg;

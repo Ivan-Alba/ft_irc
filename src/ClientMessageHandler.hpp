@@ -40,6 +40,8 @@ class ClientMessageHandler
 			const std::vector<std::string> &tokens);
 		static void handleQuit(Server &server, Client &client,
 			const std::vector<std::string> &tokens);
+		static void handlePing(Server &server, Client &client,
+			const std::vector<std::string> &tokens);
 
 		// Operator commands
 		static void handleKick(Server &server, Client &client,

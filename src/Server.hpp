@@ -47,13 +47,17 @@ class Server
 		void	disconnectClient(Client *client, const std::string &reason);
 
 		// Utilities
-		void	logMessage(const std::string &msg) const;
+		void	sendRaw(const Client *client, const std::string &text);	
 		void	sendNotice(const Client *client, const std::string &text);	
 		void	sendError(const Client *client, const std::string &text);
 		void	sendPrivMsg(const Client *from, const Client* to,
 					const std::string &text);
 		void	sendNumeric(Client* client, int numeric, const std::string &message);
+		
 		void	authenticateClient(Client *client);
+
+		// Debug
+		void	logMessage(const std::string &msg) const;
 };
 
 #endif

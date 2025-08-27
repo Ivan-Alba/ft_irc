@@ -40,6 +40,7 @@ void	ClientMessageHandler::initCommandMap()
 	//commandMap["INVITE"]	= &ClientMessageHandler::handleInvite;
 	//commandMap["TOPIC"]		= &ClientMessageHandler::handleTopic;
 	//commandMap["MODE"]		= &ClientMessageHandler::handleMode;
+	commandMap["PING"]		= &ClientMessageHandler::handlePing;
 }
 
 void	ClientMessageHandler::processCommand(Server &server, Client &client,
@@ -95,6 +96,12 @@ void	ClientMessageHandler::handleQuit(
 {
 	server.disconnectClient(&client, "Goodbye");
 	(void)tokens;
+}
+
+void	ClientMessageHandler::handlePing(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	server.sendRaw(&client, std::string("PONG :" + tokens[1]));
 }
 
 void	ClientMessageHandler::handleNick(
@@ -180,7 +187,7 @@ std::vector<std::string>	ClientMessageHandler::tokenize(std::string &line)
 		}
 
 		//Right part from : , but without begining spaces
-		std::string trailing_params = line.substr(pos + 2);
+		std::string trailing_params = line.substr(pos + 1);
 		// if there is spaces in the (Ex: PRIVMSG #canal :    hello world  ) delete all the spaces with a trim function
 		tokens.push_back(trim(trailing_params));
 	}
