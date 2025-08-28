@@ -3,6 +3,7 @@
 #include "Server.hpp"
 #include "Channel.hpp"
 #include "IRCReplies.hpp"
+#include "Utils.hpp"
 #include "config.hpp"
 
 #include <iostream>
@@ -61,7 +62,7 @@ void	ClientMessageHandler::processCommand(Server &server, Client &client,
 		{
 			it->second(server, client, tokens);
 		}
-		else if (tokens[0] == "CAP")
+		else if (tokens[0] != "CAP")
 		{
 			server.sendNumeric(
 				&client, ERR_UNKNOWNCOMMAND, tokens[0] + " :Unknown command");
@@ -142,7 +143,11 @@ void	ClientMessageHandler::handleUser(
 	else
 	{
 		client.setUsername(tokens[1]);
-		client.setHostname(tokens[2]);
+
+		if (tokens.size() >= 3)
+			client.setHostname(tokens[2]);
+		else
+			client.setHostname("*");
 		server.authenticateClient(&client);
 	}
 }
@@ -191,7 +196,8 @@ void	ClientMessageHandler::handlePrivMsg(
 
 		if (it != clients.end())
 		{
-			server.sendPrivMsg(&client, it->second->getNickname() ,it->second, tokens[2]);
+			if (it->second != &client)
+				server.sendPrivMsg(&client, it->second->getNickname() ,it->second, tokens[2]);
 		}
 		else
 		{
@@ -218,13 +224,11 @@ void	ClientMessageHandler::handleJoin(
 	
 	//Split tokens[1] for multiple channels on param
 	std::vector<std::string>	channelsToJoin;
-	std::istringstream			ss(tokens[1]);
-	std::string					channelName;
+	std::vector<std::string>	keys;
 
-	while (std::getline(ss, channelName, ','))
-	{
-		channelsToJoin.push_back(channelName);
-	}
+	channelsToJoin = Utils::split(tokens[1], ',');
+	if (tokens.size() > 2)
+		keys = Utils::split(tokens[2], ',');
 
 	std::map<std::string, Channel*> channels = server.getChannels();
 	
@@ -239,6 +243,27 @@ void	ClientMessageHandler::handleJoin(
 
 			const std::map<std::string, const Client*>& users = channel->getUsers();
 			const std::set<const Client*>& operators = channel->getOperators();
+
+			if (users.find(client.getNickname()) != users.end())
+				continue ;
+
+			if (channel->isInviteOnly())
+			{
+				server.sendNumeric(&client, ERR_INVITEONLYCHAN,
+									channelsToJoin[i] + " :Cannot join channel (+i)");
+				continue ;
+			}
+
+			if (!channel->getKey().empty())
+			{
+				if (keys.size() < i + 1 || keys[i] != channel->getKey())
+				{
+					server.sendNumeric(
+						&client, ERR_BADCHANNELKEY, tokens[1] + " :Password required");
+					continue ;
+				}
+			}
+
 			for (std::map<std::string, const Client*>::const_iterator ui = users.begin();
 				ui != users.end(); ++ui)
 			{
@@ -287,7 +312,6 @@ void	ClientMessageHandler::handlePing(
 	server.sendRaw(&client, std::string("PONG :" + tokens[1]));
 }
 
-
 // Testing tokenizer, printing tokens
 void	ClientMessageHandler::printTokens(const std::vector<std::string> &tokens)
 {
@@ -297,57 +321,24 @@ void	ClientMessageHandler::printTokens(const std::vector<std::string> &tokens)
 	}
 }
 
-// Trim to delete spaces after and before msg
-std::string	ClientMessageHandler::trim(const std::string &str)
-{
-	std::string	trimmed = "";
-
-	size_t start = str.find_first_not_of(" \t\r\n");
-
-	if (start == std::string::npos)
-		return (trimmed);
-
-	size_t end = str.find_last_not_of(" \t\r\n");
-
-	trimmed = str.substr(start, end - start + 1);
-
-	return (trimmed);
-}
-
 std::vector<std::string>	ClientMessageHandler::tokenize(std::string &line)
 {
 	std::vector<std::string> tokens;
 
-	// Looking for :
 	size_t	pos = line.find(":");
 
-	// If : exist, all the content after is a token including spaces (trailing paramaters)
 	if (pos != std::string::npos)
 	{
-    	// Left part from : must be separated by spaces
 		std::string			left = line.substr(0, pos);
-		std::istringstream	iss(left);
-		std::string			token;
+		std::string			right = line.substr(pos + 1);
+		
+		tokens = Utils::splitBySpace(left);
 
-		while (iss >> token)
-		{
-			tokens.push_back(token);
-		}
-
-		//Right part from : , but without begining spaces
-		std::string trailing_params = line.substr(pos + 1);
-		// if there is spaces in the (Ex: PRIVMSG #canal :    hello world  ) delete all the spaces with a trim function
-		tokens.push_back(trim(trailing_params));
+		tokens.push_back(Utils::trim(right));
 	}
 	else
 	{
-		// If there is not trailing parameters
-		std::istringstream iss(line);
-		std::string word;
-		while (iss >> word)
-		{
-			tokens.push_back(word);
-		}
+		tokens = Utils::splitBySpace(line);	
 	}
 
 	//TODO DEBUG
