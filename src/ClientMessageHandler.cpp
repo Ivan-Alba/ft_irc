@@ -40,7 +40,7 @@ void	ClientMessageHandler::initCommandMap()
 	commandMap["QUIT"]		= &ClientMessageHandler::handleQuit;
 	commandMap["KICK"]		= &ClientMessageHandler::handleKick;
 	commandMap["INVITE"]	= &ClientMessageHandler::handleInvite;
-	//commandMap["TOPIC"]		= &ClientMessageHandler::handleTopic;
+	commandMap["TOPIC"]		= &ClientMessageHandler::handleTopic;
 	//commandMap["MODE"]		= &ClientMessageHandler::handleMode;
 	commandMap["PING"]		= &ClientMessageHandler::handlePing;
 }
@@ -474,6 +474,81 @@ void	ClientMessageHandler::handleInvite(
 	{
 		server.sendNumeric(
 			&client, ERR_NOSUCHCHANNEL, tokens[2] + " :No such channel");
+	}
+}
+
+void	ClientMessageHandler::handleTopic(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	if (!client.isAuthenticated())
+	{
+		server.sendNumeric(&client, ERR_NOTREGISTERED, ":You have not registered");
+		return ;
+	}
+
+	if (tokens.size() < 2)
+	{
+		server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "PART :Not enough parameters");
+		return ;
+	}
+	
+	std::map<std::string, Channel*>	channels = server.getChannels();
+	
+	std::map<std::string, Channel*>::iterator it = channels.find(tokens[1]);
+
+	if (it != channels.end())
+	{
+		Channel *channel									= it->second;
+		const std::set<const Client*> operators				= channel->getOperators();
+		const std::map<std::string, const Client*>& users	= channel->getUsers();
+
+		std::map<std::string, const Client*>::const_iterator ui 
+			= users.find(client.getNickname());
+
+		if (ui == users.end())
+		{
+			server.sendNumeric(&client, ERR_NOTONCHANNEL,
+				tokens[1] + " :You're not on that channel");
+			return ;
+		}
+
+		if (tokens.size() > 2 && channel->isTopicBlocked()
+			&& operators.find(&client) == operators.end())
+		{
+			server.sendNumeric(&client, ERR_CHANOPRIVSNEEDED, client.getNickname()
+								+ " " + tokens[1] + " :You're not channel operator");
+			return ;
+		}
+
+		if (tokens.size() == 2)
+		{
+			//Mostrar topic
+			if (!channel->getTopic().empty())
+			{
+				server.sendNumeric(&client, RPL_TOPIC, tokens[1]
+					+ " :" + channel->getTopic());
+			}
+			else
+				server.sendNumeric(&client, RPL_NOTOPIC, tokens[1] + " :No topic is set");
+		}
+		else
+		{
+			channel->setTopic(tokens[2]);
+
+			std::string topicMsg = ":" + client.getNickname() + "!"
+				+ client.getUsername() + "@" + client.getHostname() + " TOPIC "
+				+ tokens[1] + " :" + tokens[2] + "\r\n";
+			
+			for (ui = users.begin(); ui != users.end(); ++ui)
+			{
+				server.sendRaw(ui->second, topicMsg);
+			}
+		}
+	}
+	else
+	{
+		server.sendNumeric(
+			&client, ERR_NOSUCHCHANNEL, tokens[1] + " :No such channel");
 	}
 }
 
