@@ -28,6 +28,8 @@
 #define ERR_BADCHANNELKEY		475	// "<nick> <channel> :Cannot join channel (+k) - password required"
 #define ERR_INVITEONLYCHAN		473	// "<nick> <channel> :Cannot join channel (+i)"
 
+#define ERR_CHANOPRIVSNEEDED	482	// "<client> <channel> :You're not channel operator"
+
 // --- NICK ---
 #define	ERR_NONICKNAMEGIVEN		431	// ":No nickname given"
 #define	ERR_ERRONEUSNICKNAME	432	// "<nick> :Erroneous nickname"

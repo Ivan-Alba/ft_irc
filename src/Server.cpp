@@ -2,6 +2,7 @@
 #include "Client.hpp"
 #include "Channel.hpp"
 #include "ClientMessageHandler.hpp"
+#include "IRCReplies.hpp"
 #include "config.hpp"
 
 #include <iostream>
@@ -294,7 +295,7 @@ void	Server::authenticateClient(Client *client)
 
 		clientsByNick[client->getNickname()] = client;
 
-		sendNumeric(client, 1, std::string("Welcome to " + serverConfig::serverName
+		sendNumeric(client, RPL_WELCOME, std::string("Welcome to " + serverConfig::serverName
 			+ " " + client->getNickname()));
 	}
 }
@@ -391,7 +392,6 @@ void	Server::sendNumeric(Client* client, int numeric, const std::string &message
 	sendToClient(client->getClientFd(), fullMessage);
 }
 
-// Para RPL_NAMEREPLY (353)
 void	Server::sendNameReply(Client* client, const std::string &channel,
 								const std::string &userList)
 {
@@ -403,7 +403,6 @@ void	Server::sendNameReply(Client* client, const std::string &channel,
 	sendToClient(client->getClientFd(), fullMessage);
 }
 
-// Para RPL_ENDOFNAMES (366)
 void	Server::sendEndOfNames(Client* client, const std::string &channel)
 {
 	std::string fullMessage = ":" + serverConfig::serverName

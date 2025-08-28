@@ -36,9 +36,9 @@ void	ClientMessageHandler::initCommandMap()
 	commandMap["USER"]		= &ClientMessageHandler::handleUser;
 	commandMap["PRIVMSG"]	= &ClientMessageHandler::handlePrivMsg;
 	commandMap["JOIN"]		= &ClientMessageHandler::handleJoin;
-	//commandMap["PART"]		= &ClientMessageHandler::handlePart;
+	commandMap["PART"]		= &ClientMessageHandler::handlePart;
 	commandMap["QUIT"]		= &ClientMessageHandler::handleQuit;
-	//commandMap["KICK"]		= &ClientMessageHandler::handleKick;
+	commandMap["KICK"]		= &ClientMessageHandler::handleKick;
 	//commandMap["INVITE"]	= &ClientMessageHandler::handleInvite;
 	//commandMap["TOPIC"]		= &ClientMessageHandler::handleTopic;
 	//commandMap["MODE"]		= &ClientMessageHandler::handleMode;
@@ -272,7 +272,6 @@ void	ClientMessageHandler::handleJoin(
 				if (operators.find(ui->second) != operators.end())
 					userList += "@";
 				userList += ui->second->getNickname();
-				std::cout << "DEBUG USER LIST: " << userList << std::endl;
 			}
 
 			server.sendNameReply(&client, channelsToJoin[i], userList);
@@ -296,6 +295,127 @@ void	ClientMessageHandler::handleJoin(
 			server.sendNumeric(
 				&client, ERR_NOSUCHCHANNEL, channelsToJoin[i] + " :No such channel");
 		}
+	}
+}
+
+void	ClientMessageHandler::handlePart(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	if (!client.isAuthenticated())
+	{
+		server.sendNumeric(&client, ERR_NOTREGISTERED, ":You have not registered");
+		return ;
+	}
+
+	if (tokens.size() < 2)
+	{
+		server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "PART :Not enough parameters");
+		return;
+	}
+	
+	std::vector<std::string>		channelsToLeave = Utils::split(tokens[1], ',');
+	std::map<std::string, Channel*>	channels = server.getChannels();
+	
+	for (size_t i = 0; i < channelsToLeave.size(); ++i)
+	{
+		std::map<std::string, Channel*>::iterator it = channels.find(channelsToLeave[i]);
+
+		if (it != channels.end())
+		{
+			Channel 	*channel = it->second;
+
+			const std::map<std::string, const Client*>& users = channel->getUsers();
+
+			if (users.find(client.getNickname()) == users.end())
+			{
+				server.sendNumeric(&client, ERR_NOTONCHANNEL,
+					channelsToLeave[i] + " :You're not on that channel");
+				continue ;
+			}
+
+			std::string	msg("");
+			if (tokens.size() >= 3)
+				msg = " :" + tokens[2];
+
+			std::string leaveMsg = ":" + client.getNickname() + "!"
+				+ client.getUsername() + "@" + client.getHostname() + " PART "
+				+ channelsToLeave[i] + msg + "\r\n";
+			
+			for (std::map<std::string, const Client*>::const_iterator ui
+				= users.begin(); ui != users.end(); ++ui)
+			{
+				server.sendRaw(ui->second, leaveMsg);
+			}
+			channel->removeUser(client.getNickname());
+			channel->removeOperator(&client);
+		}
+		else
+		{
+			server.sendNumeric(
+				&client, ERR_NOSUCHCHANNEL, channelsToLeave[i] + " :No such channel");
+		}
+	}
+}
+
+void	ClientMessageHandler::handleKick(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	if (!client.isAuthenticated())
+	{
+		server.sendNumeric(&client, ERR_NOTREGISTERED, ":You have not registered");
+		return ;
+	}
+
+	if (tokens.size() < 3)
+	{
+		server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "PART :Not enough parameters");
+		return ;
+	}
+	
+	std::map<std::string, Channel*>	channels = server.getChannels();
+	
+	std::map<std::string, Channel*>::iterator it = channels.find(tokens[1]);
+
+	if (it != channels.end())
+	{
+		Channel 						*channel = it->second;
+		const std::set<const Client*>	operators = channel->getOperators();
+
+		if (operators.find(&client) == operators.end())
+		{
+			server.sendNumeric(&client, ERR_CHANOPRIVSNEEDED, client.getNickname()
+								+ " " + tokens[1] + " :You're not channel operator");
+			return ;
+		}
+
+		const std::map<std::string, const Client*>& users = channel->getUsers();
+		if (users.find(tokens[2]) == users.end())
+		{
+			server.sendNumeric(&client, ERR_USERNOTINCHANNEL, tokens[2] + " "
+								+ tokens[1] + " :They aren't on that channel");
+			return ;
+		}
+
+		std::string	msg("");
+		if (tokens.size() >= 4)
+			msg = " :" + tokens[3];
+
+		std::string kickMsg = ":" + client.getNickname() + "!"
+			+ client.getUsername() + "@" + client.getHostname() + " KICK "
+			+ tokens[1] + " " + tokens[2] + msg + "\r\n";
+			
+		for (std::map<std::string, const Client*>::const_iterator ui
+			= users.begin(); ui != users.end(); ++ui)
+		{
+			server.sendRaw(ui->second, kickMsg);
+		}
+		channel->removeUser(tokens[2]);
+		channel->removeOperator(users.find(tokens[2])->second);
+	}
+	else
+	{
+		server.sendNumeric(
+			&client, ERR_NOSUCHCHANNEL, tokens[1] + " :No such channel");
 	}
 }
 
