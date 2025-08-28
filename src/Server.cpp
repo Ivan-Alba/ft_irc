@@ -113,12 +113,12 @@ const std::string&	Server::getPassword() const
 	return (this->password);
 }
 
-std::map<std::string, Client*>	Server::getClientsByNick() const
+const std::map<std::string, Client*>&	Server::getClientsByNick() const
 {
 	return (this->clientsByNick);
 }
 
-std::map<std::string, Channel*>	Server::getChannels() const
+const std::map<std::string, Channel*>&	Server::getChannels() const
 {
 	return (this->channels);
 }
@@ -296,13 +296,6 @@ void	Server::authenticateClient(Client *client)
 
 		sendNumeric(client, 1, std::string("Welcome to " + serverConfig::serverName
 			+ " " + client->getNickname()));
-		sendNotice(client, "Tip: In irssi, send a message with: /msg <channel> <text>");
-		
-		Channel *welcomeChannel = channels["#welcome"];
-		welcomeChannel->addUser(client);
-		sendNotice(client, std::string("Joined channel: " + welcomeChannel->getName()));
-		if (welcomeChannel->getUsers().size() == 1)
-			welcomeChannel->addOperator(client);
 	}
 }
 
@@ -348,8 +341,8 @@ void	Server::sendNotice(const Client *client, const std::string &text)
 	sendToClient(client->getClientFd(), msg);
 }
 
-void	Server::sendPrivMsg(const Client *from, const Client* to,
-						const std::string &text)
+void	Server::sendPrivMsg(const Client *from, const std::string &target,
+							const Client* to, const std::string &text)
 {
 	if (!from || !to)
 		return;
@@ -357,8 +350,7 @@ void	Server::sendPrivMsg(const Client *from, const Client* to,
 	std::string prefix = ":" + from->getNickname() + "!" + from->getUsername()
 							+ "@" + from->getHostname();
 
-	std::string fullMessage = prefix + " PRIVMSG " + to->getNickname()
-							+ " :" + text + "\r\n";
+	std::string fullMessage = prefix + " PRIVMSG " + target	+ " :" + text + "\r\n";
 
     sendToClient(to->getClientFd(), fullMessage);
 }
@@ -395,6 +387,29 @@ void	Server::sendNumeric(Client* client, int numeric, const std::string &message
 						+ numericStr + " " 
 						+ target + " :" 
 						+ message + "\r\n";
+
+	sendToClient(client->getClientFd(), fullMessage);
+}
+
+// Para RPL_NAMEREPLY (353)
+void	Server::sendNameReply(Client* client, const std::string &channel,
+								const std::string &userList)
+{
+	std::string fullMessage = ":" + serverConfig::serverName
+							+ " 353 " + client->getNickname()
+							+ " = " + channel
+							+ " :" + userList + "\r\n";
+
+	sendToClient(client->getClientFd(), fullMessage);
+}
+
+// Para RPL_ENDOFNAMES (366)
+void	Server::sendEndOfNames(Client* client, const std::string &channel)
+{
+	std::string fullMessage = ":" + serverConfig::serverName
+							+ " 366 " + client->getNickname()
+							+ " " + channel
+							+ " :End of NAMES list\r\n";
 
 	sendToClient(client->getClientFd(), fullMessage);
 }

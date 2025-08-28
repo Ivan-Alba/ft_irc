@@ -34,7 +34,7 @@ void	ClientMessageHandler::initCommandMap()
 	commandMap["NICK"]		= &ClientMessageHandler::handleNick;
 	commandMap["USER"]		= &ClientMessageHandler::handleUser;
 	commandMap["PRIVMSG"]	= &ClientMessageHandler::handlePrivMsg;
-	//commandMap["JOIN"]		= &ClientMessageHandler::handleJoin;
+	commandMap["JOIN"]		= &ClientMessageHandler::handleJoin;
 	//commandMap["PART"]		= &ClientMessageHandler::handlePart;
 	commandMap["QUIT"]		= &ClientMessageHandler::handleQuit;
 	//commandMap["KICK"]		= &ClientMessageHandler::handleKick;
@@ -174,8 +174,8 @@ void	ClientMessageHandler::handlePrivMsg(
 			for (std::map<std::string, const Client*>::iterator i = users.begin();
 				i != users.end(); ++i)
 			{
-				//if (i->second != &client)
-					server.sendPrivMsg(&client, i->second, tokens[2]);
+				if (i->second != &client)
+					server.sendPrivMsg(&client, tokens[1] ,i->second, tokens[2]);
 			}
 		}
 		else
@@ -187,15 +187,86 @@ void	ClientMessageHandler::handlePrivMsg(
 	else
 	{
 		std::map<std::string, Client*> clients = server.getClientsByNick();
-		
-		if (clients.find(tokens[1]) != clients.end())
+		std::map<std::string, Client*>::iterator it = clients.find(tokens[1]);
+
+		if (it != clients.end())
 		{
-			server.sendPrivMsg(&client, clients.find(tokens[1])->second, tokens[2]);
+			server.sendPrivMsg(&client, it->second->getNickname() ,it->second, tokens[2]);
 		}
 		else
 		{
 			server.sendNumeric(
 				&client, ERR_NOSUCHNICK, tokens[1] + " :No such nick");
+		}
+	}
+}
+
+void	ClientMessageHandler::handleJoin(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	if (!client.isAuthenticated())
+	{
+		server.sendNumeric(&client, ERR_NOTREGISTERED, ":You have not registered");
+		return ;
+	}
+
+	if (tokens.size() < 2)
+	{
+		server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "JOIN :Not enough parameters");
+		return;
+	}
+	
+	//Split tokens[1] for multiple channels on param
+	std::vector<std::string>	channelsToJoin;
+	std::istringstream			ss(tokens[1]);
+	std::string					channelName;
+
+	while (std::getline(ss, channelName, ','))
+	{
+		channelsToJoin.push_back(channelName);
+	}
+
+	std::map<std::string, Channel*> channels = server.getChannels();
+	
+	for (size_t i = 0; i < channelsToJoin.size(); ++i)
+	{
+		std::map<std::string, Channel*>::iterator it = channels.find(channelsToJoin[i]);
+
+		if (it != channels.end())
+		{
+			Channel 	*channel = it->second;
+			std::string userList;
+
+			const std::map<std::string, const Client*>& users = channel->getUsers();
+			for (std::map<std::string, const Client*>::const_iterator ui = users.begin();
+				ui != users.end(); ++ui)
+			{
+				if (!userList.empty())
+					userList += " ";
+				userList += ui->second->getNickname();
+				std::cout << "DEBUG USER LIST: " << userList << std::endl;
+			}
+
+			server.sendNameReply(&client, channelsToJoin[i], userList);
+			server.sendEndOfNames(&client, channelsToJoin[i]);
+
+			channel->addUser(&client);
+
+			std::string joinMsg = ":" + client.getNickname() + "!"
+				+ client.getUsername() + "@" + client.getHostname() + " JOIN "
+				+ channelsToJoin[i] + "\r\n";
+
+			const std::map<std::string, const Client*>& newUsers = channel->getUsers();
+			for (std::map<std::string, const Client*>::const_iterator ui
+				= newUsers.begin(); ui != newUsers.end(); ++ui)
+			{
+				server.sendRaw(ui->second, joinMsg);
+			}
+		}
+		else
+		{
+			server.sendNumeric(
+				&client, ERR_NOSUCHCHANNEL, channelsToJoin[i] + " :No such channel");
 		}
 	}
 }

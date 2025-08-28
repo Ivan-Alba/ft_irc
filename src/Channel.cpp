@@ -43,7 +43,7 @@ bool	Channel::isTopicBlocked() const
 	return (this->topicBlocked);
 }
 
-std::map<std::string, const Client*>	Channel::getUsers() const
+const std::map<std::string, const Client*>&	Channel::getUsers() const
 {
 	return (this->users);
 }
@@ -77,12 +77,21 @@ void	Channel::setTopicBlocked(bool topicBlocked)
 // Utilities
 void	Channel::addUser(const Client *newUser)
 {
-	users[newUser->getNickname()] = newUser;
+	if (users.find(newUser->getNickname()) == users.end())
+	{
+		users[newUser->getNickname()] = newUser;
+
+		if (this->users.size() == 1)
+		{
+			addOperator(newUser);
+		}
+	}
 }
 
 void	Channel::addOperator(const Client *newOperator)
 {
-	operators.insert(newOperator);
+	if (operators.find(newOperator) == operators.end())
+		operators.insert(newOperator);
 }
 
 void	Channel::removeUser(const std::string &nickname)

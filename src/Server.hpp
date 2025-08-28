@@ -40,8 +40,8 @@ class Server
 
 		// Getter
 		const std::string&	getPassword() const;
-		std::map<std::string, Client*>	getClientsByNick() const;
-		std::map<std::string, Channel*>	getChannels() const;
+		const std::map<std::string, Client*>&	getClientsByNick() const;
+		const std::map<std::string, Channel*>&	getChannels() const;
 		
 		// Execution loop
 		void	run();
@@ -51,10 +51,13 @@ class Server
 		void	sendRaw(const Client *client, const std::string &text);	
 		void	sendNotice(const Client *client, const std::string &text);	
 		void	sendError(const Client *client, const std::string &text);
-		void	sendPrivMsg(const Client *from, const Client* to,
-					const std::string &text);
+		void	sendPrivMsg(const Client *from, const std::string& target,
+								const Client* to, const std::string &text);
 		void	sendNumeric(Client* client, int numeric, const std::string &message);
-		
+		void	sendNameReply(Client* client, const std::string &channel,
+								const std::string &userList);
+		void	sendEndOfNames(Client* client, const std::string &channel);
+
 		void	authenticateClient(Client *client);
 
 		// Debug

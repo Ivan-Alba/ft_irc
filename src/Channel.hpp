@@ -36,7 +36,7 @@ class Channel
 		bool				isInviteOnly() const;
 		bool				isTopicBlocked() const;
 
-		std::map<std::string, const Client*>	getUsers() const;
+		const std::map<std::string, const Client*>&	getUsers() const;
 
 		// Setter
 		void	setTopic(const std::string &newTopic);
