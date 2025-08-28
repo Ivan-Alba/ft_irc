@@ -17,6 +17,8 @@
 #define	RPL_NAMEREPLY		353	// "<client> = <channel> :[nickname {space nickname}*]"
 #define	RPL_ENDOFNAMES		366	// "<client> <channel> :End of NAMES list"
 
+#define RPL_CHANNELMODEIS   312 // "<chanel> <mode> <mode params>"
+#define RPL_UMODEIS         221 // "<user mode string>"
 
 // ============================
 //  ERROR REPLIES (ERR_)
@@ -55,5 +57,11 @@
 #define	ERR_NOTONCHANNEL		442	// "<channel> :You're not on that channel"
 #define	ERR_USERNOTINCHANNEL	441	// "<nick> <channel> :They aren't on that channel"
 #define	ERR_CANNOTSENDTOCHAN	404	// "<channel> :Cannot send to channel"
+
+// --- MODE ---
+#define ERR_CHANOPRIVSNEEDED    482 // "<channel> :You're not channel operator"
+#define ERR_UNKNOWNMODE         472 // "<char> : is unkown mode char to me"
+#define ERR_USERSDONTMATCH      502 // ":Cant change mode for other users"
+#define ERR_UMODEUNKOWNFLAG     501 // ":UKnown MODE flag"
 
 #endif

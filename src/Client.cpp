@@ -4,7 +4,7 @@
 
 // Constructor
 Client::Client(int fd) : clientFd(fd), nickname(""), username(""),
-	passwordAccepted(false), authenticated(false), buffer("") {}
+	passwordAccepted(false), authenticated(false), isInvisible(false), buffer("") {}
 
 
 // Destructor
@@ -48,6 +48,11 @@ bool	Client::isAuthenticated() const
 	return (this->authenticated);
 }
 
+bool	Client::getIsInvisible() const
+{
+	return (this->isInvisible);
+}
+
 const std::string&	Client::getBuffer() const
 {
 	return (this->buffer);
@@ -89,8 +94,6 @@ void	Client::setHostname(const std::string &hostname)
 	this->hostname = hostname;
 }
 
-
-
 void	Client::setPasswordAccepted(bool isAccepted)
 {
 	this->passwordAccepted = isAccepted;
@@ -99,6 +102,11 @@ void	Client::setPasswordAccepted(bool isAccepted)
 void	Client::setAuthenticated(bool isAuth)
 {
 	this->authenticated = isAuth;
+}
+
+void	Client::setIsInvisible(bool isNotVisible)
+{
+	this->isInvisible = isNotVisible;
 }
 
 // Utilities

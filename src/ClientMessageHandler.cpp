@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <cstdio>
 
 std::map<std::string, CommandHandler>	ClientMessageHandler::commandMap;
 
@@ -41,7 +42,7 @@ void	ClientMessageHandler::initCommandMap()
 	commandMap["KICK"]		= &ClientMessageHandler::handleKick;
 	commandMap["INVITE"]	= &ClientMessageHandler::handleInvite;
 	commandMap["TOPIC"]		= &ClientMessageHandler::handleTopic;
-	//commandMap["MODE"]		= &ClientMessageHandler::handleMode;
+	commandMap["MODE"]		= &ClientMessageHandler::handleMode;
 	commandMap["PING"]		= &ClientMessageHandler::handlePing;
 }
 
@@ -565,6 +566,200 @@ void	ClientMessageHandler::handlePing(
 			Server &server, Client &client, const std::vector<std::string> &tokens)
 {
 	server.sendRaw(&client, std::string("PONG :" + tokens[1]));
+}
+
+void ClientMessageHandler::handleMode(
+	Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	// Check if client is authenticated
+	if (!client.isAuthenticated())
+	{
+		server.sendNumeric(&client, ERR_NOTREGISTERED, ":You have not registered");
+		return ;
+	}
+
+	// Check minimum parameters
+	if (tokens.size() < 2)
+	{
+		server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Not enough parameters");
+		return ;
+	}
+
+	// Check if target is channel
+	std::string target = tokens[1];
+	if (target[0] == '#') // Handle Channel Modes
+	{
+		std::map<std::string, Channel*> channels = server.getChannels();
+
+		std::map<std::string, Channel*>::iterator it = channels.find(target);
+
+		if (it == channels.end())
+		{
+			server.sendNumeric(&client, ERR_NOSUCHCHANNEL, target + " :No such channel");
+			return ;
+		}
+
+		Channel * channel = it->second;
+
+		// If channel exist ask for mode
+		if (tokens.size() == 2)
+		{
+			std::string mode = "+";
+			if (channel->isInviteOnly()) mode += "i";
+			if (channel->isTopicBlocked()) mode += "t";
+			if (!channel->getKey().empty()) mode += "k";
+			if (channel->getUserLimit() > 0) mode += "l";
+			server.sendNumeric(&client, RPL_CHANNELMODEIS, target + " " + mode);
+			return ;
+		}
+
+		// Check if the cliente is a channel operator
+		if (channel-> getOperators().find(&client) == channel->getOperators().end())
+		{
+			server.sendNumeric(&client, ERR_CHANOPRIVSNEEDED, target + " :You're not channel operator");
+			return ;
+		}
+
+		// Mode changes
+		std::string mode_flag = tokens[2];
+		size_t param_index = 3; // Index for optional parameters (k, o, l)
+
+		for (size_t i=0; i < mode_flag.length(); ++i)
+		{
+			char flag = mode_flag[i];
+			bool sign = flag == '+';
+
+			if (flag == '+' || flag == '-')
+				continue ;
+            
+			switch (flag)
+			{
+				case 'i':
+					channel->setInviteOnly(sign);
+					//channel->clearInvited(); // This line is for -i, it has to clear the invited list
+					break ;
+				case 't':
+					channel->setTopicBlocked(sign);
+					break ;
+				case 'k':
+				{   
+					if (sign)
+					{
+						if (param_index < tokens.size())
+							channel->setKey(tokens[param_index]);
+						else
+							server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Not enough parameters for +k");
+					}
+					else
+						channel->setKey("");
+					param_index++;
+					break ;
+				}
+				case 'o':
+				{
+					if (param_index < tokens.size())
+						{
+						std::string targetNick = tokens[param_index];
+						std::map<std::string, Client*> clients = server.getClientsByNick();
+						Client* targetClient = NULL;
+						std::map<std::string, Client*>::iterator client_it = clients.find(targetNick);
+
+						if (client_it != clients.end())
+							targetClient = client_it->second;
+                        
+						if (targetClient && channel->getUsers().find(targetNick) != channel->getUsers().end())
+						{
+							if (sign)
+								channel->addOperator(targetClient);
+							else
+								channel->removeOperator(targetClient);
+						}
+						else
+							server.sendNumeric(&client, ERR_USERNOTINCHANNEL, targetNick + " " + target + " :They aren't on that channel");
+					}
+					else
+						server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Not enough parameters for +o");
+					param_index++;
+					break ;
+				}
+				case 'l':
+				{
+					if (sign)
+					{
+						if (param_index < tokens.size())
+						{
+							int limit;
+							if (sscanf(tokens[param_index].c_str(), "%d", &limit) == 1)
+							{
+								if (limit > 0)
+									channel->setUserLimit(limit);
+							}
+							else
+							{
+								server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Invalid limit parameter");
+							}
+						}
+						else
+							server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Not enough parameters");
+					}
+					else
+						channel->setUserLimit(0); // 0 means no limits
+					param_index++;
+					break ;
+				}
+				default:
+					server.sendNumeric(&client, ERR_UNKNOWNMODE, std::string(1, flag) + " :is unknown mode char to me for " + target);
+					break ;
+			}
+		}
+		std::string modeMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@" + client.getHostname() + " MODE " + target + " " + tokens[2];
+
+		std::map<std::string, const Client*> users = channel->getUsers();
+		for (std::map<std::string, const Client*>::iterator it = users.begin();
+			it != users.end(); ++it)
+			server.sendRaw(it->second, modeMsg);
+	}
+	else // User Modes (only for self)
+	{
+		if (target != client.getNickname())
+		{
+			server.sendNumeric(&client, ERR_USERSDONTMATCH, ":Cant change modes for other users");
+			return ;
+		}
+
+		if (tokens.size() == 2)
+		{
+			std::string mode = "+";
+			if (client.getIsInvisible())
+				mode += "i";
+			server.sendNumeric(&client, RPL_UMODEIS, mode);
+			return ;
+		}
+
+		std::string mode_flag = tokens[2];
+		if (mode_flag.length() < 2 || (mode_flag[0] != '+' && mode_flag[0] != '-'))
+		{
+			server.sendNumeric(&client, ERR_UMODEUNKOWNFLAG, "Unknown MODE flag");
+			return ;
+		}
+		bool sign = (mode_flag[0] == '+');
+
+		for (size_t i = 1; i < mode_flag.length(); ++i)
+		{
+			char flag = mode_flag[i];
+			
+			switch (flag)
+			{
+				case 'i':
+					client.setIsInvisible(sign);
+					server.sendRaw(&client, ":" + client.getNickname() + " MODE " + client.getNickname() + " " + mode_flag);
+					break ;
+				default:
+					server.sendNumeric(&client, ERR_UMODEUNKOWNFLAG, "Unknown MODE flag");
+					break ;
+			}
+		}
+	}
 }
 
 // Testing tokenizer, printing tokens

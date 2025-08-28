@@ -12,6 +12,7 @@ class Client
 		std::string	hostname;
 		bool		passwordAccepted;
 		bool		authenticated;
+		bool		isInvisible;
 		std::string	buffer;
 		std::string	bufferOut;
 
@@ -31,6 +32,7 @@ class Client
 		const std::string&	getHostname() const;
 		bool				isPasswordAccepted() const;
 		bool				isAuthenticated() const;
+		bool				getIsInvisible() const;
 
 		const std::string&	getBuffer() const;
 		std::string&		getBuffer();
@@ -45,6 +47,7 @@ class Client
 		void	setHostname(const std::string &hostname);
 		void	setPasswordAccepted(bool isAccepted);
 		void	setAuthenticated(bool isAuth);
+		void	setIsInvisible(bool isNotVisible);
 
 		// Utilities
 		void	appendToBuffer(const std::string &newData);
