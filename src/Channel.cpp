@@ -10,6 +10,7 @@ Channel::~Channel()
 {
 	users.clear();
 	operators.clear();
+	invited.clear();
 }
 
 // Getter
@@ -49,6 +50,11 @@ const std::map<std::string, const Client*>&	Channel::getUsers() const
 }
 
 const std::set<const Client*>&	Channel::getOperators() const
+{
+	return (this->operators);
+}
+
+const std::set<const Client*>&	Channel::getInvited() const
 {
 	return (this->operators);
 }
@@ -99,12 +105,28 @@ void	Channel::addOperator(const Client *newOperator)
 		operators.insert(newOperator);
 }
 
+void	Channel::addInvited(const Client *newInvited)
+{
+	if (invited.find(newInvited) == invited.end())
+		invited.insert(newInvited);
+}
+
 void	Channel::removeUser(const std::string &nickname)
 {
 	users.erase(nickname);
 }
 
-void	Channel::removeOperator(const Client *operatr)
+void	Channel::removeOperator(const Client *client)
 {
-	operators.erase(operatr);
+	operators.erase(client);
+}
+
+void	Channel::removeInvited(const Client *client)
+{
+	invited.erase(client);
+}
+
+void	Channel::cleanInvited()
+{
+	invited.clear();
 }

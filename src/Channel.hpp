@@ -15,6 +15,7 @@ class Channel
 		std::string								key;
 		std::map<std::string, const Client*>	users;
 		std::set<const Client*>					operators;
+		std::set<const Client*>					invited;
 		int										userLimit;
 		bool									inviteOnly;
 		bool									topicBlocked;
@@ -38,6 +39,7 @@ class Channel
 
 		const std::map<std::string, const Client*>&	getUsers() const;
 		const std::set<const Client*>&	getOperators() const;
+		const std::set<const Client*>&	getInvited() const;
 
 		// Setter
 		void	setTopic(const std::string &newTopic);
@@ -49,8 +51,12 @@ class Channel
 		// Utilities
 		void	addUser(const Client* newUser);
 		void	addOperator(const Client* newOperator);
+		void	addInvited(const Client* newInvited);
 		void	removeUser(const std::string &nickname);
-		void	removeOperator(const Client* operatr);
+		void	removeOperator(const Client* client);
+		void	removeInvited(const Client* client);
+
+		void	cleanInvited();
 
 };
 

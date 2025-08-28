@@ -39,7 +39,7 @@ void	ClientMessageHandler::initCommandMap()
 	commandMap["PART"]		= &ClientMessageHandler::handlePart;
 	commandMap["QUIT"]		= &ClientMessageHandler::handleQuit;
 	commandMap["KICK"]		= &ClientMessageHandler::handleKick;
-	//commandMap["INVITE"]	= &ClientMessageHandler::handleInvite;
+	commandMap["INVITE"]	= &ClientMessageHandler::handleInvite;
 	//commandMap["TOPIC"]		= &ClientMessageHandler::handleTopic;
 	//commandMap["MODE"]		= &ClientMessageHandler::handleMode;
 	commandMap["PING"]		= &ClientMessageHandler::handlePing;
@@ -241,13 +241,14 @@ void	ClientMessageHandler::handleJoin(
 			Channel 	*channel = it->second;
 			std::string userList;
 
-			const std::map<std::string, const Client*>& users = channel->getUsers();
-			const std::set<const Client*>& operators = channel->getOperators();
+			const std::map<std::string, const Client*>& users 	= channel->getUsers();
+			const std::set<const Client*>& operators 			= channel->getOperators();
+			const std::set<const Client*>& invited 				= channel->getInvited();
 
 			if (users.find(client.getNickname()) != users.end())
 				continue ;
 
-			if (channel->isInviteOnly())
+			if (channel->isInviteOnly() && invited.find(&client) == invited.end())
 			{
 				server.sendNumeric(&client, ERR_INVITEONLYCHAN,
 									channelsToJoin[i] + " :Cannot join channel (+i)");
@@ -418,6 +419,65 @@ void	ClientMessageHandler::handleKick(
 			&client, ERR_NOSUCHCHANNEL, tokens[1] + " :No such channel");
 	}
 }
+
+void	ClientMessageHandler::handleInvite(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	if (!client.isAuthenticated())
+	{
+		server.sendNumeric(&client, ERR_NOTREGISTERED, ":You have not registered");
+		return ;
+	}
+
+	if (tokens.size() < 3)
+	{
+		server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "PART :Not enough parameters");
+		return ;
+	}
+	
+	std::map<std::string, Channel*>	channels = server.getChannels();
+	
+	std::map<std::string, Channel*>::iterator it = channels.find(tokens[2]);
+
+	if (it != channels.end())
+	{
+		Channel 						*channel = it->second;
+		const std::set<const Client*>	operators = channel->getOperators();
+
+		if (channel->isInviteOnly() && operators.find(&client) == operators.end())
+		{
+			server.sendNumeric(&client, ERR_CHANOPRIVSNEEDED, client.getNickname()
+								+ " " + tokens[2] + " :You're not channel operator");
+			return ;
+		}
+
+		const std::map<std::string, const Client*>& users = channel->getUsers();
+		std::map<std::string, const Client*>::const_iterator ui = users.find(tokens[1]);
+
+		if (ui == users.end())
+		{
+			server.sendNumeric(&client, ERR_USERNOTINCHANNEL, tokens[1] + " "
+								+ tokens[2] + " :They aren't on that channel");
+			return ;
+		}
+
+		std::string inviteMsg = ":" + client.getNickname() + "!"
+			+ client.getUsername() + "@" + client.getHostname() + " INVITE "
+			+ tokens[1] + " " + tokens[2] + "\r\n";
+			
+		server.sendRaw(ui->second, inviteMsg);
+	
+		if (channel->isInviteOnly())
+			channel->addInvited(ui->second);
+	}
+	else
+	{
+		server.sendNumeric(
+			&client, ERR_NOSUCHCHANNEL, tokens[2] + " :No such channel");
+	}
+}
+
+
 
 void	ClientMessageHandler::handleQuit(
 			Server &server, Client &client, const std::vector<std::string> &tokens)

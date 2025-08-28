@@ -278,6 +278,7 @@ void	Server::disconnectClient(Client *client, const std::string& reason)
 		{
 			chan->removeUser(client->getNickname());
 			chan->removeOperator(client);
+			chan->removeInvited(client);
 		}
 	}
 
