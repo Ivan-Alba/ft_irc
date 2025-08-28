@@ -41,7 +41,8 @@ class Server
 		// Getter
 		const std::string&	getPassword() const;
 		std::map<std::string, Client*>	getClientsByNick() const;
-
+		std::map<std::string, Channel*>	getChannels() const;
+		
 		// Execution loop
 		void	run();
 		void	disconnectClient(Client *client, const std::string &reason);

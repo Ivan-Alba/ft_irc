@@ -1,6 +1,8 @@
 #include "ClientMessageHandler.hpp"
 #include "Client.hpp"
 #include "Server.hpp"
+#include "Channel.hpp"
+#include "IRCReplies.hpp"
 #include "config.hpp"
 
 #include <iostream>
@@ -31,7 +33,7 @@ void	ClientMessageHandler::initCommandMap()
 	commandMap["PASS"]		= &ClientMessageHandler::handlePass;
 	commandMap["NICK"]		= &ClientMessageHandler::handleNick;
 	commandMap["USER"]		= &ClientMessageHandler::handleUser;
-	//commandMap["PRIVMSG"]	= &ClientMessageHandler::handlePrivMsg;
+	commandMap["PRIVMSG"]	= &ClientMessageHandler::handlePrivMsg;
 	//commandMap["JOIN"]		= &ClientMessageHandler::handleJoin;
 	//commandMap["PART"]		= &ClientMessageHandler::handlePart;
 	commandMap["QUIT"]		= &ClientMessageHandler::handleQuit;
@@ -61,7 +63,8 @@ void	ClientMessageHandler::processCommand(Server &server, Client &client,
 		}
 		else if (tokens[0] == "CAP")
 		{
-			server.sendError(&client, "Unknown command: " + tokens[0]);
+			server.sendNumeric(
+				&client, ERR_UNKNOWNCOMMAND, tokens[0] + " :Unknown command");
 		}
 	}
 }
@@ -75,7 +78,7 @@ void	ClientMessageHandler::handlePass(
 
 	if (tokens.size() == 1)
 	{
-		server.sendNumeric(&client, 461, "PASS :Not enough parameters");
+		server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "PASS :Not enough parameters");
 	}
 
 	if (tokens[1] == server.getPassword())
@@ -85,22 +88,9 @@ void	ClientMessageHandler::handlePass(
 	}
 	else
 	{
-		server.sendNumeric(&client, 464, "PASS :Wrong password");
+		server.sendNumeric(&client, ERR_PASSWDMISMATCH, "PASS :Wrong password");
 		server.disconnectClient(&client, "Wrong password");
 	}
-}
-
-void	ClientMessageHandler::handleQuit(
-			Server &server, Client &client, const std::vector<std::string> &tokens)
-{
-	server.disconnectClient(&client, "Goodbye");
-	(void)tokens;
-}
-
-void	ClientMessageHandler::handlePing(
-			Server &server, Client &client, const std::vector<std::string> &tokens)
-{
-	server.sendRaw(&client, std::string("PONG :" + tokens[1]));
 }
 
 void	ClientMessageHandler::handleNick(
@@ -111,7 +101,12 @@ void	ClientMessageHandler::handleNick(
 
 	if (tokens.size() == 1)
 	{
-		server.sendNumeric(&client, 431, "NICK :No nickname given");
+		server.sendNumeric(&client, ERR_NONICKNAMEGIVEN, ":No nickname given");
+	}
+	else if (tokens[1].at(0) == '#')
+	{
+		server.sendNumeric(
+			&client, ERR_ERRONEUSNICKNAME,  tokens[1] + " :Erroneus nickname");
 	}
 	else
 	{
@@ -142,21 +137,87 @@ void	ClientMessageHandler::handleUser(
 
 	if (tokens.size() == 1)
 	{
-		server.sendNumeric(&client, 461, "USER :Not enough parameters");
+		server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "USER :Not enough parameters");
 	}
 	else
 	{
 		client.setUsername(tokens[1]);
+		client.setHostname(tokens[2]);
 		server.authenticateClient(&client);
 	}
 }
 
-// TODO tonekize()
+void	ClientMessageHandler::handlePrivMsg(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	if (!client.isAuthenticated())
+	{
+		server.sendNumeric(&client, ERR_NOTREGISTERED, ":You have not registered");
+		return ;
+	}
+
+	if (tokens.size() != 3)
+	{
+		server.sendNumeric(
+			&client, ERR_NEEDMOREPARAMS, "PRIVMSG :Not enough parameters");
+		return;
+	}
+	
+	if (tokens[1][0] == '#')
+	{
+		std::map<std::string, Channel*> channels = server.getChannels();
+		std::map<std::string, Channel*>::iterator it = channels.find(tokens[1]);
+
+		if (it != channels.end())
+		{
+			std::map<std::string, const Client*> users = (it->second)->getUsers();
+			for (std::map<std::string, const Client*>::iterator i = users.begin();
+				i != users.end(); ++i)
+			{
+				//if (i->second != &client)
+					server.sendPrivMsg(&client, i->second, tokens[2]);
+			}
+		}
+		else
+		{
+			server.sendNumeric(
+				&client, ERR_NOSUCHCHANNEL, tokens[1] + " :No such channel");
+		}
+	}
+	else
+	{
+		std::map<std::string, Client*> clients = server.getClientsByNick();
+		
+		if (clients.find(tokens[1]) != clients.end())
+		{
+			server.sendPrivMsg(&client, clients.find(tokens[1])->second, tokens[2]);
+		}
+		else
+		{
+			server.sendNumeric(
+				&client, ERR_NOSUCHNICK, tokens[1] + " :No such nick");
+		}
+	}
+}
+
+void	ClientMessageHandler::handleQuit(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	server.disconnectClient(&client, "Goodbye");
+	(void)tokens;
+}
+
+void	ClientMessageHandler::handlePing(
+			Server &server, Client &client, const std::vector<std::string> &tokens)
+{
+	server.sendRaw(&client, std::string("PONG :" + tokens[1]));
+}
+
 
 // Testing tokenizer, printing tokens
 void	ClientMessageHandler::printTokens(const std::vector<std::string> &tokens)
 {
-	for (size_t i=0; i < tokens.size(); ++i)
+	for (size_t i = 0; i < tokens.size(); ++i)
 	{
 		std::cout << "Token " << i << ": '" << tokens[i] << "'" << std::endl;
 	}

@@ -43,7 +43,7 @@ bool	Channel::isTopicBlocked() const
 	return (this->topicBlocked);
 }
 
-const std::map<std::string, const Client*>&	Channel::getUsers() const
+std::map<std::string, const Client*>	Channel::getUsers() const
 {
 	return (this->users);
 }

@@ -9,6 +9,7 @@ class Client
 		int			clientFd;
 		std::string	nickname;
 		std::string	username;
+		std::string	hostname;
 		bool		passwordAccepted;
 		bool		authenticated;
 		std::string	buffer;
@@ -27,6 +28,7 @@ class Client
 		int					getClientFd() const;
 		const std::string&	getUsername() const;
 		const std::string&	getNickname() const;
+		const std::string&	getHostname() const;
 		bool				isPasswordAccepted() const;
 		bool				isAuthenticated() const;
 
@@ -40,6 +42,7 @@ class Client
 		void	setClientFd(int fd);
 		void	setNickname(const std::string &nickname);
 		void	setUsername(const std::string &username);
+		void	setHostname(const std::string &hostname);
 		void	setPasswordAccepted(bool isAccepted);
 		void	setAuthenticated(bool isAuth);
 

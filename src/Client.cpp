@@ -33,6 +33,11 @@ const std::string&	Client::getUsername() const
 	return (this->username);
 }
 
+const std::string&	Client::getHostname() const
+{
+	return (this->hostname);
+}
+
 bool	Client::isPasswordAccepted() const
 {
 	return (this->passwordAccepted);
@@ -78,6 +83,13 @@ void	Client::setUsername(const std::string &username)
 {
 	this->username = username;
 }
+
+void	Client::setHostname(const std::string &hostname)
+{
+	this->hostname = hostname;
+}
+
+
 
 void	Client::setPasswordAccepted(bool isAccepted)
 {

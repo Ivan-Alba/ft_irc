@@ -118,10 +118,15 @@ std::map<std::string, Client*>	Server::getClientsByNick() const
 	return (this->clientsByNick);
 }
 
+std::map<std::string, Channel*>	Server::getChannels() const
+{
+	return (this->channels);
+}
+
 // Execution flow
 void	Server::run()
 {
-	addChannel("welcome", "Welcome channel");
+	addChannel("#welcome", "Welcome channel");
 
 	addPollFd(listenFd);
 
@@ -287,11 +292,13 @@ void	Server::authenticateClient(Client *client)
 	{
 		client->setAuthenticated(true);
 
+		clientsByNick[client->getNickname()] = client;
+
 		sendNumeric(client, 1, std::string("Welcome to " + serverConfig::serverName
 			+ " " + client->getNickname()));
 		sendNotice(client, "Tip: In irssi, send a message with: /msg <channel> <text>");
 		
-		Channel *welcomeChannel = channels["welcome"];
+		Channel *welcomeChannel = channels["#welcome"];
 		welcomeChannel->addUser(client);
 		sendNotice(client, std::string("Joined channel: " + welcomeChannel->getName()));
 		if (welcomeChannel->getUsers().size() == 1)
@@ -339,6 +346,21 @@ void	Server::sendNotice(const Client *client, const std::string &text)
 		+ " :" + text + "\r\n";
 
 	sendToClient(client->getClientFd(), msg);
+}
+
+void	Server::sendPrivMsg(const Client *from, const Client* to,
+						const std::string &text)
+{
+	if (!from || !to)
+		return;
+
+	std::string prefix = ":" + from->getNickname() + "!" + from->getUsername()
+							+ "@" + from->getHostname();
+
+	std::string fullMessage = prefix + " PRIVMSG " + to->getNickname()
+							+ " :" + text + "\r\n";
+
+    sendToClient(to->getClientFd(), fullMessage);
 }
 
 void	Server::sendError(const Client *client, const std::string &text)
