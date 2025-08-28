@@ -238,11 +238,14 @@ void	ClientMessageHandler::handleJoin(
 			std::string userList;
 
 			const std::map<std::string, const Client*>& users = channel->getUsers();
+			const std::set<const Client*>& operators = channel->getOperators();
 			for (std::map<std::string, const Client*>::const_iterator ui = users.begin();
 				ui != users.end(); ++ui)
 			{
 				if (!userList.empty())
 					userList += " ";
+				if (operators.find(ui->second) != operators.end())
+					userList += "@";
 				userList += ui->second->getNickname();
 				std::cout << "DEBUG USER LIST: " << userList << std::endl;
 			}

@@ -37,6 +37,7 @@ class Channel
 		bool				isTopicBlocked() const;
 
 		const std::map<std::string, const Client*>&	getUsers() const;
+		const std::set<const Client*>&	getOperators() const;
 
 		// Setter
 		void	setTopic(const std::string &newTopic);

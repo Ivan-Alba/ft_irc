@@ -48,6 +48,11 @@ const std::map<std::string, const Client*>&	Channel::getUsers() const
 	return (this->users);
 }
 
+const std::set<const Client*>&	Channel::getOperators() const
+{
+	return (this->operators);
+}
+
 // Setter
 void	Channel::setTopic(const std::string &newTopic)
 {
