@@ -14,6 +14,16 @@ typedef void (*CommandHandler)(Server&, Client&, const std::vector<std::string>&
 class ClientMessageHandler
 {
 	public:
+
+		struct modeContext
+		{
+			Server						&server;
+			Channel						&channel;
+			Client						&client;
+			std::vector<std::string>	&tokens;
+			size_t						paramIndex;
+		};
+
 		static void handleMessage(Server &server, Client &client);
 
 	private:

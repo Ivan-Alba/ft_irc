@@ -63,7 +63,7 @@ void	ClientMessageHandler::processCommand(Server &server, Client &client,
 		{
 			it->second(server, client, tokens);
 		}
-		else if (tokens[0] != "CAP")
+		else if (tokens[0] != "CAP" && tokens[0] != "WHO")
 		{
 			server.sendNumeric(
 				&client, ERR_UNKNOWNCOMMAND, tokens[0] + " :Unknown command");
@@ -493,8 +493,7 @@ void	ClientMessageHandler::handleTopic(
 		return ;
 	}
 	
-	std::map<std::string, Channel*>	channels = server.getChannels();
-	
+	std::map<std::string, Channel*>	channels = server.getChannels();	
 	std::map<std::string, Channel*>::iterator it = channels.find(tokens[1]);
 
 	if (it != channels.end())
@@ -553,8 +552,6 @@ void	ClientMessageHandler::handleTopic(
 	}
 }
 
-
-
 void	ClientMessageHandler::handleQuit(
 			Server &server, Client &client, const std::vector<std::string> &tokens)
 {
@@ -586,179 +583,210 @@ void ClientMessageHandler::handleMode(
 	}
 
 	// Check if target is channel
-	std::string target = tokens[1];
-	if (target[0] == '#') // Handle Channel Modes
+	if (tokens[1][0] != '#') // Handle Channel Modes
 	{
-		std::map<std::string, Channel*> channels = server.getChannels();
-
-		std::map<std::string, Channel*>::iterator it = channels.find(target);
-
-		if (it == channels.end())
-		{
-			server.sendNumeric(&client, ERR_NOSUCHCHANNEL, target + " :No such channel");
-			return ;
-		}
-
-		Channel * channel = it->second;
-
-		// If channel exist ask for mode
-		if (tokens.size() == 2)
-		{
-			std::string mode = "+";
-			if (channel->isInviteOnly()) mode += "i";
-			if (channel->isTopicBlocked()) mode += "t";
-			if (!channel->getKey().empty()) mode += "k";
-			if (channel->getUserLimit() > 0) mode += "l";
-			server.sendNumeric(&client, RPL_CHANNELMODEIS, target + " " + mode);
-			return ;
-		}
-
-		// Check if the cliente is a channel operator
-		if (channel-> getOperators().find(&client) == channel->getOperators().end())
-		{
-			server.sendNumeric(&client, ERR_CHANOPRIVSNEEDED, target + " :You're not channel operator");
-			return ;
-		}
-
-		// Mode changes
-		std::string mode_flag = tokens[2];
-		size_t param_index = 3; // Index for optional parameters (k, o, l)
-
-		for (size_t i=0; i < mode_flag.length(); ++i)
-		{
-			char flag = mode_flag[i];
-			bool sign = flag == '+';
-
-			if (flag == '+' || flag == '-')
-				continue ;
-            
-			switch (flag)
-			{
-				case 'i':
-					channel->setInviteOnly(sign);
-					//channel->clearInvited(); // This line is for -i, it has to clear the invited list
-					break ;
-				case 't':
-					channel->setTopicBlocked(sign);
-					break ;
-				case 'k':
-				{   
-					if (sign)
-					{
-						if (param_index < tokens.size())
-							channel->setKey(tokens[param_index]);
-						else
-							server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Not enough parameters for +k");
-					}
-					else
-						channel->setKey("");
-					param_index++;
-					break ;
-				}
-				case 'o':
-				{
-					if (param_index < tokens.size())
-						{
-						std::string targetNick = tokens[param_index];
-						std::map<std::string, Client*> clients = server.getClientsByNick();
-						Client* targetClient = NULL;
-						std::map<std::string, Client*>::iterator client_it = clients.find(targetNick);
-
-						if (client_it != clients.end())
-							targetClient = client_it->second;
-                        
-						if (targetClient && channel->getUsers().find(targetNick) != channel->getUsers().end())
-						{
-							if (sign)
-								channel->addOperator(targetClient);
-							else
-								channel->removeOperator(targetClient);
-						}
-						else
-							server.sendNumeric(&client, ERR_USERNOTINCHANNEL, targetNick + " " + target + " :They aren't on that channel");
-					}
-					else
-						server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Not enough parameters for +o");
-					param_index++;
-					break ;
-				}
-				case 'l':
-				{
-					if (sign)
-					{
-						if (param_index < tokens.size())
-						{
-							int limit;
-							if (sscanf(tokens[param_index].c_str(), "%d", &limit) == 1)
-							{
-								if (limit > 0)
-									channel->setUserLimit(limit);
-							}
-							else
-							{
-								server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Invalid limit parameter");
-							}
-						}
-						else
-							server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Not enough parameters");
-					}
-					else
-						channel->setUserLimit(0); // 0 means no limits
-					param_index++;
-					break ;
-				}
-				default:
-					server.sendNumeric(&client, ERR_UNKNOWNMODE, std::string(1, flag) + " :is unknown mode char to me for " + target);
-					break ;
-			}
-		}
-		std::string modeMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@" + client.getHostname() + " MODE " + target + " " + tokens[2];
-
-		std::map<std::string, const Client*> users = channel->getUsers();
-		for (std::map<std::string, const Client*>::iterator it = users.begin();
-			it != users.end(); ++it)
-			server.sendRaw(it->second, modeMsg);
+		return ;
 	}
-	else // User Modes (only for self)
+
+	std::map<std::string, Channel*> channels = server.getChannels();
+	std::map<std::string, Channel*>::iterator it = channels.find(target);
+
+	if (it == channels.end())
 	{
-		if (target != client.getNickname())
-		{
-			server.sendNumeric(&client, ERR_USERSDONTMATCH, ":Cant change modes for other users");
+		server.sendNumeric(&client, ERR_NOSUCHCHANNEL, tokens[1] + " :No such channel");
+		return ;
+	}
+
+	Channel *channel									= it->second;
+	const std::set<const Client*> operators				= channel->getOperators();
+	const std::map<std::string, const Client*>& users	= channel->getUsers();
+
+	std::map<std::string, const Client*>::const_iterator ui 
+		= users.find(client.getNickname());
+
+	if (ui == users.end())
+	{
+		server.sendNumeric(&client, ERR_NOTONCHANNEL,
+			tokens[1] + " :You're not on that channel");
 			return ;
+	}
+
+	//Current channel modes
+	bool	inviteOnly		= channel->isInviteOnly();
+	bool	topicBlocked	= isTopicBlocked();
+	bool	keyChannel		= !channel->getKey().empty();
+	bool	userLimit		= channel->getUserLimit() > 0;
+
+	// If channel exist ask for mode
+	if (tokens.size() == 2)
+	{
+		std::string mode = "+";
+		if (inviteOnly) mode += "i";
+		if (topicBlocked) mode += "t";
+		if (keyChannel) mode += "k";
+		if (userLimit) mode += "l";
+		
+		server.sendNumeric(&client, RPL_CHANNELMODEIS, tokens[1] + " " + mode);
+		
+		return ;
+	}
+
+	// Check if the cliente is a channel operator
+	if (channel-> getOperators().find(&client) == channel->getOperators().end())
+	{
+		server.sendNumeric(&client, ERR_CHANOPRIVSNEEDED,
+			target + " :You're not channel operator");
+		
+		return ;
+	}
+
+	//Generate a valid chain "+-+it--k+ol-"
+	std::string execCmd;
+	std::string flagsAccepted = "itkol";
+	char currentSign = 0;
+	for (size_t i = 0; i < tokens[2].size(); ++i)
+	{
+		char c = tokens[2][i];
+		if (c == '+' || c == '-')
+		{
+			currentSign = c;
+			execCmd += c;
+			continue ;
 		}
 
-		if (tokens.size() == 2)
-		{
-			std::string mode = "+";
-			if (client.getIsInvisible())
-				mode += "i";
-			server.sendNumeric(&client, RPL_UMODEIS, mode);
-			return ;
-		}
+		if (currentSign == 0)
+			continue;
 
-		std::string mode_flag = tokens[2];
-		if (mode_flag.length() < 2 || (mode_flag[0] != '+' && mode_flag[0] != '-'))
+		if (flagsAccepted.find(tokens[2][i]) != std::string::npos)
 		{
-			server.sendNumeric(&client, ERR_UMODEUNKOWNFLAG, "Unknown MODE flag");
-			return ;
+			execCmd += c;
 		}
-		bool sign = (mode_flag[0] == '+');
+	}
 
-		for (size_t i = 1; i < mode_flag.length(); ++i)
+	//Execute cmd chain
+	modeContext.server = server;
+	modeContext.channel = *channel;
+	modeContext.client = client
+	modeContext.tokens = tokens;
+	modeContext.paramIndex = 3;
+	
+	for (size_t i = 0; i < exeCmd.size(), ++i)
+	{
+		if (execCmd[i] == '-' || execCmd == '+')
 		{
-			char flag = mode_flag[i];
-			
-			switch (flag)
+			currentSing = execCmd[i];
+			continue ;
+		}
+		changeMode(execCmd[i], currentSign, modeContext);	
+	}
+
+	//Print last message (only changes from original state)
+
+}
+
+void	ClientMessageHandler::changeMode(char mode, char symbol, ModeContext &modeCtx)
+{
+	switch (mode)
+	{
+		case 'i':
+		{
+			if (symbol == '+' && !modeCtx.channel.isInviteOnly())
 			{
-				case 'i':
-					client.setIsInvisible(sign);
-					server.sendRaw(&client, ":" + client.getNickname() + " MODE " + client.getNickname() + " " + mode_flag);
-					break ;
-				default:
-					server.sendNumeric(&client, ERR_UMODEUNKOWNFLAG, "Unknown MODE flag");
-					break ;
+				modeCtx.channel.setInviteOnly(true);
+				modeCtx.server.notifyModeChange(&modeCtx.channel, &modeCtx.client, "+i");
 			}
+			else if (symbol == '-' && modeCtx.channel.isInviteOnly())
+			{
+				modeCtx.channel.setInviteOnly(false);
+				modeCtx.server.notifyModeChange(&modeCtx.channel, &modeCtx.client, "-i");
+			}
+			break;
 		}
+
+		case 'k':
+		{
+			if (tokens.size() <= modeCtx.paramIndex)
+			{
+				server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Not enough parameters");
+				return ;
+			}
+
+			if (symbol == '+' && modeCtx.channel.getKey().empty())
+			{
+				modeCtx.channel.setKey(tokens[modeCtx.paramIndex]);
+				modeCtx.server.notifyModeChange(&modeCtx.channel, &modeCtx.client, "+k");
+			}
+			else if (symbol == '+')
+			{
+				server.sendNumeric(&client, ERR_KEYSET, " :Channel key already set");
+			}
+			else if (symbol == '-' && !modeCtx.channel.getKey().empty())
+			{
+				if (modeCtx.channel.getKey() == tokens[modeCtx.paramIndex])
+				{
+					modeCtx.channel.setKey("");
+					modeCtx.server.notifyModeChange(&modeCtx.channel, &modeCtx.client, "-k");
+				}
+			}
+			++(modeCtx.paramIndex);
+			
+			break;
+		}
+		
+		case 't':
+		{
+			if (symbol == '+' && !modeCtx.channel.isTopicBlocked())
+			{
+				modeCtx.channel.setTopicBlocked(true);
+				modeCtx.server.notifyModeChange(&modeCtx.channel, &modeCtx.client, "+t");
+			}
+			else if (symbol == '-' && modeCtx.channel.isTopicBlocked())
+			{
+				modeCtx.channel.setTopicBlocked(false);
+				modeCtx.server.notifyModeChange(&modeCtx.channel, &modeCtx.client, "-t");
+			}
+			break;
+		}
+		case 'o':
+		{
+			if (tokens.size() <= modeCtx.paramIndex)
+			{
+				server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Not enough parameters");
+				return ;
+			}
+
+			// TODO
+
+			break;
+		}
+
+		case 'l':
+		{
+			if (tokens.size() <= modeCtx.paramIndex)
+			{
+				server.sendNumeric(&client, ERR_NEEDMOREPARAMS, "MODE :Not enough parameters");
+				return ;
+			}
+
+			std::string	&extra = modeCtx.tokens[modeCtx.paramIndex++];
+
+			if (symbol == '+')
+			{
+				// TODO falta casteo de str a int
+				modeCtx.channel.setUserLimit(tokens[modeCtx.paramIndex]);
+				modeCtx.server.notifyModeChange(&modeCtx.channel, &modeCtx.client, "+l");
+			}
+			else
+			{
+				// TODO falta gestionar límite en JOIN
+				modeCtx.channel.setUSerLimit(-1);
+				modeCtx.server.notifyModeChange(&modeCtx.channel, &modeCtx.client, "-l");
+			}
+
+			
+			break;
+		}
+
 	}
 }
 

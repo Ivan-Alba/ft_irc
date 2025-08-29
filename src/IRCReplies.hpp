@@ -59,6 +59,7 @@
 #define	ERR_CANNOTSENDTOCHAN	404	// "<channel> :Cannot send to channel"
 
 // --- MODE ---
+#define ERR_KEYSET				467	// "<client> <channel> :Channel key already set"
 #define ERR_CHANOPRIVSNEEDED    482 // "<channel> :You're not channel operator"
 #define ERR_UNKNOWNMODE         472 // "<char> : is unkown mode char to me"
 #define ERR_USERSDONTMATCH      502 // ":Cant change mode for other users"
