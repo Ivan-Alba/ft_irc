@@ -191,11 +191,11 @@ void	ClientMessageHandler::handlePrivMsg(
 			{
 				server.sendNumeric(&client, ERR_NOTONCHANNEL,
 					channel->getName() + " :You're not on that channel");
-				continue ;
+				return ;
 			}
 
-			std::map<std::string, const Client*> users = channel->getUsers();
-			for (std::map<std::string, const Client*>::iterator i = users.begin();
+			//std::map<std::string, const Client*> users = channel->getUsers();
+			for (std::map<std::string, const Client*>::const_iterator i = users.begin();
 				i != users.end(); ++i)
 			{
 				if (i->second != &client)
