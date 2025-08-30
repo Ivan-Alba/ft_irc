@@ -11,9 +11,9 @@
 #define	RPL_CREATED			003
 #define	RPL_MYINFO			004
 
-# define RPL_TOPIC			332	// <client> <channel> :<topic>
-# define RPL_NOTOPIC		331	// <client> <channel> :No topic is set
-
+#define RPL_TOPIC			332	// <client> <channel> :<topic>
+#define RPL_NOTOPIC			331	// <client> <channel> :No topic is set
+#define RPL_INVITING		341 // <client> <user> <channel>
 #define	RPL_NAMEREPLY		353	// "<client> = <channel> :[nickname {space nickname}*]"
 #define	RPL_ENDOFNAMES		366	// "<client> <channel> :End of NAMES list"
 

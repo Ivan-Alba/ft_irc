@@ -470,25 +470,36 @@ void	ClientMessageHandler::handleInvite(
 
 	if (it != channels.end())
 	{
-		Channel 						*channel = it->second;
-		const std::set<const Client*>	operators = channel->getOperators();
-
-		if (channel->isInviteOnly() && operators.find(&client) == operators.end())
-		{
-			server.sendNumeric(&client, ERR_CHANOPRIVSNEEDED, client.getNickname()
-								+ " " + tokens[2] + " :You're not channel operator");
-			return ;
-		}
-
+		Channel	*channel = it->second;
+	
 		const std::map<std::string, const Client*>& users = channel->getUsers();
-		std::map<std::string, const Client*>::const_iterator ui = users.find(client.getNickname());
-
+		const std::map<std::string, const Client*>::const_iterator ui
+			= users.find(client.getNickname());
+		const std::set<const Client*> operators= channel->getOperators();
+		
 		if (ui == users.end())
 		{
 			server.sendNumeric(&client, ERR_NOTONCHANNEL,
 				tokens[1] + " :You're not on that channel");
 			return ;
 		}
+	
+		if (channel->isInviteOnly() && operators.find(&client) == operators.end())
+		{
+			server.sendNumeric(&client, ERR_CHANOPRIVSNEEDED, client.getNickname()
+								+ " " + tokens[2] + " :You're not channel operator");
+			return ;
+		}
+		
+		std::map<std::string, Client*> clientsByNick = server.getClientsByNick();
+		std::map<std::string, Client*>::iterator ci = clientsByNick.find(tokens[1]);
+		if (ci == clientsByNick.end())
+		{
+			server.sendNumeric(&client, ERR_NOSUCHNICK,
+				tokens[1] + " :No such nick");
+			return ;
+		}
+
 		if (users.find(tokens[1]) != users.end())
 		{
 			server.sendNumeric(&client, ERR_USERONCHANNEL,
@@ -496,17 +507,18 @@ void	ClientMessageHandler::handleInvite(
 			
 			return ;
 		}
-		
-		ui = users.find(tokens[1]);
 
 		std::string inviteMsg = ":" + client.getNickname() + "!"
 			+ client.getUsername() + "@" + client.getHostname() + " INVITE "
 			+ tokens[1] + " " + tokens[2] + "\r\n";
 			
-		server.sendRaw(ui->second, inviteMsg);
+		server.sendRaw(ci->second, inviteMsg);
+
+		server.sendNumeric(&client, RPL_INVITING, client.getNickname() + " "
+			+ tokens[1] + " " + tokens[2]);
 	
 		if (channel->isInviteOnly())
-			channel->addInvited(ui->second);
+			channel->addInvited(ci->second);
 	}
 	else
 	{

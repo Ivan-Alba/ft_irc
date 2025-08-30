@@ -57,7 +57,7 @@ const std::set<const Client*>&	Channel::getOperators() const
 
 const std::set<const Client*>&	Channel::getInvited() const
 {
-	return (this->operators);
+	return (this->invited);
 }
 
 // Setter
@@ -96,6 +96,11 @@ void	Channel::addUser(const Client *newUser)
 		if (this->users.size() == 1)
 		{
 			addOperator(newUser);
+		}
+
+		if (this->isInviteOnly())
+		{
+			removeInvited(newUser);
 		}
 	}
 }
