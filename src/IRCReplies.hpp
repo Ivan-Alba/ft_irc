@@ -57,6 +57,7 @@
 #define	ERR_NOTONCHANNEL		442	// "<channel> :You're not on that channel"
 #define	ERR_USERNOTINCHANNEL	441	// "<nick> <channel> :They aren't on that channel"
 #define	ERR_CANNOTSENDTOCHAN	404	// "<channel> :Cannot send to channel"
+#define ERR_CHANNELISFULL		471	// "<channel> :Cannot join channel (+l)"
 
 // --- MODE ---
 #define ERR_KEYSET				467	// "<client> <channel> :Channel key already set"

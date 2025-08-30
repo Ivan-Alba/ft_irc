@@ -8,6 +8,7 @@
 
 class Server;
 class Client;
+class Channel;
 
 typedef void (*CommandHandler)(Server&, Client&, const std::vector<std::string>&);
 
@@ -15,13 +16,15 @@ class ClientMessageHandler
 {
 	public:
 
-		struct modeContext
+		struct ModeContext
 		{
-			Server						&server;
-			Channel						&channel;
-			Client						&client;
-			std::vector<std::string>	&tokens;
-			size_t						paramIndex;
+			Server*							server;
+			Channel*						channel;
+			Client*							client;
+			const std::vector<std::string>*	tokens;
+			size_t							paramIndex;
+
+			ModeContext();
 		};
 
 		static void handleMessage(Server &server, Client &client);
@@ -63,6 +66,9 @@ class ClientMessageHandler
 			const std::vector<std::string> &tokens);
 		static void handleMode(Server &server, Client &client,
 			const std::vector<std::string> &tokens);
+
+		static void	changeMode(char mode, char symbol, ModeContext &modeCtx);
+		static int	parseUserLimit(const std::string &param);
 
 		// Utilities
 		static std::vector<std::string>	tokenize(std::string &line);

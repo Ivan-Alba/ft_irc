@@ -469,6 +469,31 @@ void	Server::sendPendingMessages(Client* client)
 	}
 }
 
+void	Server::notifyModeChange(Channel *channel, Client *client,
+	const std::string &mode, const std::string &extra)
+{
+	if (!channel || !client || mode.empty())
+		return;
+
+	std::string prefix = ":"+ client->getNickname() + "!"
+								+ client->getUsername() + "@"
+								+ client->getHostname();
+
+	std::string fullMessage = prefix + " MODE " + channel->getName() + " " + mode;
+
+	if (!extra.empty())
+		fullMessage += " " + extra;
+
+	fullMessage += "\r\n";
+
+	const std::map<std::string, const Client*> &users = channel->getUsers();
+	for (std::map<std::string, const Client*>::const_iterator it = users.begin();
+		it != users.end(); ++it)
+	{
+		sendRaw(it->second, fullMessage);
+	}
+}
+
 void	Server::markPollFdWritable(int fd)
 {
 	for (size_t i = 0; i < pollFds.size(); ++i)

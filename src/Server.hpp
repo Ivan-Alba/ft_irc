@@ -57,7 +57,8 @@ class Server
 		void	sendNameReply(Client* client, const std::string &channel,
 								const std::string &userList);
 		void	sendEndOfNames(Client* client, const std::string &channel);
-
+		void	notifyModeChange(Channel *channel, Client *client,
+						const std::string &mode, const std::string &extra = "");
 		void	authenticateClient(Client *client);
 
 		// Debug

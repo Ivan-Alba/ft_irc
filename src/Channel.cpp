@@ -3,7 +3,8 @@
 
 // Constructor
 Channel::Channel(const std::string &name, const std::string &topic)	: name(name),
-	topic(topic), key(""), userLimit(50), inviteOnly(false), topicBlocked(true) {}
+					topic(topic), key(""), userLimit(-1), inviteOnly(false),
+					topicBlocked(true) {}
 
 // Destructor
 Channel::~Channel()
