@@ -481,12 +481,12 @@ void	ClientMessageHandler::handleInvite(
 		}
 
 		const std::map<std::string, const Client*>& users = channel->getUsers();
-		std::map<std::string, const Client*>::const_iterator ui = users.find(tokens[1]);
+		std::map<std::string, const Client*>::const_iterator ui = users.find(client.getNickname());
 
 		if (ui == users.end())
 		{
-			server.sendNumeric(&client, ERR_USERNOTINCHANNEL, tokens[1] + " "
-								+ tokens[2] + " :They aren't on that channel");
+			server.sendNumeric(&client, ERR_NOTONCHANNEL,
+				tokens[1] + " :You're not on that channel");
 			return ;
 		}
 
