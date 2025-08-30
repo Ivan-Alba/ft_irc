@@ -45,4 +45,12 @@ namespace Utils
 
 		return (str.substr(start, end - start + 1));
     }
+
+	std::string toString(int value)
+	{
+		std::ostringstream oss;
+		oss << value;
+
+		return (oss.str());
+	}
 }

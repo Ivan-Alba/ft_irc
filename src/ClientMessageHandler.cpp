@@ -669,14 +669,34 @@ void ClientMessageHandler::handleMode(
 	// If channel exist ask for mode
 	if (tokens.size() == 2)
 	{
-		std::string mode = "+";
+		// TODO separar en función
+		std::string	mode = "+";
+		std::string	params;
 		if (inviteOnly) mode += "i";
 		if (topicBlocked) mode += "t";
-		if (keyChannel) mode += "k";
-		if (userLimit) mode += "l";
-		
-		server.sendNumeric(&client, RPL_CHANNELMODEIS, tokens[1] + " " + mode);
-		
+		if (keyChannel)
+		{
+			mode += "k";
+			params += " " + channel->getKey();
+		}
+		if (userLimit)
+		{
+			mode += "l";
+			params += " " + Utils::toString(channel->getUserLimit());
+		}
+
+		std::string msg = ":" + serverConfig::serverName + " 324 "
+                  + client.getNickname() + " "
+                  + tokens[1] + " "
+                  + mode;
+		if (!params.empty())
+			msg += " " + params;
+		msg += "\r\n";
+
+		server.sendRaw(&client, msg);
+
+		// -----------------------------
+
 		return ;
 	}
 
@@ -730,7 +750,7 @@ void ClientMessageHandler::handleMode(
 		changeMode(execCmd[i], currentSign, modeCtx);	
 	}
 
-	//Print last message (only changes from original state)
+	// TODO Print last message (only changes from original state)
 
 
 }
@@ -770,7 +790,9 @@ void	ClientMessageHandler::changeMode(char mode, char symbol, ModeContext &modeC
 			}
 			else if (symbol == '+')
 			{
-				modeCtx.server->sendNumeric(modeCtx.client, ERR_KEYSET, " :Channel key already set");
+				modeCtx.server->sendNumeric(modeCtx.client, ERR_KEYSET,
+					modeCtx.client->getNickname() + " " + modeCtx.channel->getName()
+					+ " :Channel key already set");
 			}
 			else if (symbol == '-' && !modeCtx.channel->getKey().empty())
 			{
