@@ -194,7 +194,6 @@ void	ClientMessageHandler::handlePrivMsg(
 				return ;
 			}
 
-			//std::map<std::string, const Client*> users = channel->getUsers();
 			for (std::map<std::string, const Client*>::const_iterator i = users.begin();
 				i != users.end(); ++i)
 			{
@@ -285,7 +284,7 @@ void	ClientMessageHandler::handleJoin(
 			}
 			
 			if (channel->getUserLimit() > -1
-				&& static_cast<int>(channel->getUsers().size()) >= channel->getUserLimit())
+				&& channel->getUsers().size() >= static_cast<size_t>(channel->getUserLimit()))
 			{
 				server.sendNumeric(&client, ERR_CHANNELISFULL,
 									channelsToJoin[i] + " :Cannot join channel (+l)");
