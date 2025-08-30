@@ -489,6 +489,15 @@ void	ClientMessageHandler::handleInvite(
 				tokens[1] + " :You're not on that channel");
 			return ;
 		}
+		if (users.find(tokens[1]) != users.end())
+		{
+			server.sendNumeric(&client, ERR_USERONCHANNEL,
+				tokens[1] + " " + tokens[2] + " :Is already on channel");
+			
+			return ;
+		}
+		
+		ui = users.find(tokens[1]);
 
 		std::string inviteMsg = ":" + client.getNickname() + "!"
 			+ client.getUsername() + "@" + client.getHostname() + " INVITE "
