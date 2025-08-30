@@ -273,7 +273,8 @@ void	ClientMessageHandler::handleJoin(
 				}
 			}
 			
-			if (static_cast<int>(channel->getUsers().size()) >= channel->getUserLimit())
+			if (channel->getUserLimit() > -1
+				&& static_cast<int>(channel->getUsers().size()) >= channel->getUserLimit())
 			{
 				server.sendNumeric(&client, ERR_CHANNELISFULL,
 									channelsToJoin[i] + " :Cannot join channel (+l)");
@@ -699,6 +700,7 @@ void ClientMessageHandler::handleMode(
 	}
 
 	//Print last message (only changes from original state)
+
 
 }
 
