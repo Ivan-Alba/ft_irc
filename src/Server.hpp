@@ -8,6 +8,7 @@
 
 class Channel;
 class Client;
+class Bot;
 
 class Server
 {
@@ -19,6 +20,7 @@ class Server
 		std::map<std::string, Client*>	clientsByNick;
 		std::map<int, Client*>			clientsByFd;
 		std::vector<struct pollfd>		pollFds;
+		Bot*							bot;
 		
 		Server(); // Block default constructor
 
@@ -60,6 +62,13 @@ class Server
 		void	notifyModeChange(Channel *channel, Client *client,
 						const std::string &mode, const std::string &extra = "");
 		void	authenticateClient(Client *client);
+
+		//Bot
+		void    registerBotClient(Client* c);   // add to clientsByNick
+    	void    addChannelBot(const std::string& name, const std::string& topic);
+
+		void    attachBot(Bot* b);
+    	Bot*    getBot() const;
 
 		// Debug
 		void	logMessage(const std::string &msg) const;

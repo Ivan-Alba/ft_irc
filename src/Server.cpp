@@ -4,6 +4,7 @@
 #include "ClientMessageHandler.hpp"
 #include "IRCReplies.hpp"
 #include "config.hpp"
+#include "Bot.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -128,6 +129,13 @@ const std::map<std::string, Channel*>&	Server::getChannels() const
 void	Server::run()
 {
 	addChannel("#welcome", "Welcome channel");
+
+	// Create Bot and join to welcome
+	Bot* b = new Bot(*this, "BotServ");
+	attachBot(b);
+	// Registration Bot in clientsByNick
+	b->registerInServer();
+	b->join("#welcome");
 
 	addPollFd(listenFd);
 
@@ -301,6 +309,31 @@ void	Server::authenticateClient(Client *client)
 	}
 }
 
+// Bot
+
+void Server::registerBotClient(Client* c)
+{
+    if (!c || c->getNickname().empty()) return;
+    clientsByNick[c->getNickname()] = c;  // without fd and poll
+}
+
+void Server::addChannelBot(const std::string& name, const std::string& topic)
+{
+    addChannel(name, topic);
+}
+
+void Server::attachBot(Bot* b)
+{
+    bot = b;
+    if (bot) bot->registerInServer();
+}
+
+Bot* Server::getBot() const
+{
+    return bot;
+}
+
+
 void	Server::addPollFd(int fd)
 {
 	struct pollfd	newPoll;
@@ -326,28 +359,61 @@ void	Server::removePollFd(int fd)
 // Utilities
 void	Server::sendRaw(const Client *client, const std::string &text)
 {
-	sendToClient(client->getClientFd(), text + "\r\n");
+	if (!client)
+		return;
+
+    int fd = client->getClientFd();
+	// Ignore Bots
+    if (fd == -1)
+		return;
+
+	std::map<int, Client*>::iterator it = clientsByFd.find(fd);
+    if (it == clientsByFd.end()) return;
+
+    Client* targetClient = it->second;
+	sendToClient(targetClient->getClientFd(), text + "\r\n");
 }
 
 void	Server::sendNotice(const Client *client, const std::string &text)
 {
+	if (!client)
+		return;
+
+    int fd = client->getClientFd();
+	// Ignore Bots
+    if (fd == -1)
+		return;
+
+	std::map<int, Client*>::iterator it = clientsByFd.find(fd);
+    if (it == clientsByFd.end()) return;
+
+    Client* targetClient = it->second;
+
 	std::string	msg;
 	std::string	target = "*";
 
-	if (!client->getNickname().empty())
-		target = client->getNickname();
+	if (!targetClient->getNickname().empty())
+		target = targetClient->getNickname();
 
 	msg = ":" + serverConfig::serverName + " NOTICE " + target
 		+ " :" + text + "\r\n";
 
-	sendToClient(client->getClientFd(), msg);
+	sendToClient(targetClient->getClientFd(), msg);
 }
 
 void	Server::sendPrivMsg(const Client *from, const std::string &target,
 							const Client* to, const std::string &text)
 {
-	if (!from || !to)
+	 // Sanity check
+	if (!to)
 		return;
+    int fd = to->getClientFd();
+	// Bot without fd: send only by clientsByNick
+    if (fd == -1)
+		return;
+
+	std::map<int, Client*>::iterator it = clientsByFd.find(fd);
+    if (it == clientsByFd.end()) return;
 
 	std::string prefix = ":" + from->getNickname() + "!" + from->getUsername()
 							+ "@" + from->getHostname();
@@ -416,31 +482,41 @@ void	Server::sendEndOfNames(Client* client, const std::string &channel)
 
 void	Server::sendToClient(int clientFd, const std::string &message)
 {
-	Client* client = clientsByFd.at(clientFd);
+	// To Ignorare Bots without fd
+	if (clientFd == -1)
+		return; 
+
+	std::map<int, Client*>::iterator it = clientsByFd.find(clientFd);
+    if (it == clientsByFd.end())
+		return; // Client not found
+
+    Client* targetClient = it->second;
 
 	// Pending messages
-	if (!client->getBufferOut().empty())
+	if (!targetClient->getBufferOut().empty())
 	{
-		client->appendToBufferOut(message);
+		targetClient->appendToBufferOut(message);
 		markPollFdWritable(clientFd);
 		return;
 	}
 
 	ssize_t bytesSent = send(clientFd, message.c_str(), message.size(), 0);
 
-	if (bytesSent == -1) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			client->appendToBufferOut(message);
+	if (bytesSent == -1)
+	{
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+		{
+			targetClient->appendToBufferOut(message);
 			markPollFdWritable(clientFd);
 		}
 		else
 		{
-			disconnectClient(client, "Cannot send message.");
+			disconnectClient(targetClient, "Cannot send message.");
 		}
 	}
 	else if (bytesSent < (ssize_t)message.size())
 	{
-		client->appendToBufferOut(message.substr(bytesSent));
+		targetClient->appendToBufferOut(message.substr(bytesSent));
 		markPollFdWritable(clientFd);
 	}
 }

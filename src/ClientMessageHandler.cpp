@@ -5,6 +5,7 @@
 #include "IRCReplies.hpp"
 #include "Utils.hpp"
 #include "config.hpp"
+#include "Bot.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -200,6 +201,16 @@ void	ClientMessageHandler::handlePrivMsg(
 				if (i->second != &client)
 					server.sendPrivMsg(&client, tokens[1] ,i->second, tokens[2]);
 			}
+
+			// Send advice to Bot
+			if (server.getBot())
+			{
+				const Client* botId = server.getBot()->getIdentityBot();
+				if (users.find(botId->getNickname()) != users.end())
+				{
+					server.getBot()->onChannelMessage(it->second, &client, tokens[2]);
+				}
+			}
 		}
 		else
 		{
@@ -216,6 +227,11 @@ void	ClientMessageHandler::handlePrivMsg(
 		{
 			if (it->second != &client)
 				server.sendPrivMsg(&client, it->second->getNickname() ,it->second, tokens[2]);
+			// If it's the Bot, make a response
+            if (server.getBot() && it->second == server.getBot()->getIdentityBot())
+			{
+                server.getBot()->onDirectMessage(&client, tokens[2]);
+            }
 		}
 		else
 		{
@@ -315,6 +331,12 @@ void	ClientMessageHandler::handleJoin(
 				= newUsers.begin(); ui != newUsers.end(); ++ui)
 			{
 				server.sendRaw(ui->second, joinMsg);
+			}
+
+			// Bot notification
+			if (server.getBot())
+			{
+				server.getBot()->onUserJoinedChannel(channel, &client);
 			}
 		}
 		else
@@ -506,6 +528,15 @@ void	ClientMessageHandler::handleInvite(
 				tokens[1] + " " + tokens[2] + " :Is already on channel");
 			
 			return ;
+		}
+
+		// If Bot is invited, make automatic join
+		if (server.getBot() && ci->second == server.getBot()->getIdentityBot())
+		{
+			server.getBot()->join(tokens[2]);
+			server.sendNumeric(&client, RPL_INVITING,
+				client.getNickname() + " " + tokens[1] + " " + tokens[2]);
+			return;
 		}
 
 		std::string inviteMsg = ":" + client.getNickname() + "!"

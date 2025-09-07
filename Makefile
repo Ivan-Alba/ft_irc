@@ -13,7 +13,7 @@
 NAME = ircserv
 
 SRC = main.cpp Server.cpp Client.cpp Channel.cpp ClientMessageHandler.cpp \
-		Utils.cpp
+		Utils.cpp Bot.cpp
 
 SRC_DIR = src/
 
